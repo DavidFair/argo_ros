@@ -3,6 +3,7 @@ project(argo_driver)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 add_compile_options(-std=c++11)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wpedantic -Werror")
 
 # Dependencies from ROS we need
 set(ROS_DEPS roscpp std_msgs)
@@ -31,7 +32,7 @@ catkin_package(
   INCLUDE_DIRS include
   LIBRARIES argo_driver
   CATKIN_DEPENDS ${ROS_DEPS}
-  DEPENDS system_lib
+  #DEPENDS system_lib
 )
 
 ###########
@@ -46,9 +47,10 @@ include_directories(
 )
 
 ## Declare a C++ library
-# add_library(${PROJECT_NAME}
-#   src/${PROJECT_NAME}/argo_driver.cpp
-# )
+add_library(${PROJECT_NAME}
+   src/argo_driver.cpp
+   src/publisher.cpp
+)
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
@@ -58,7 +60,7 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-# add_executable(${PROJECT_NAME}_node src/argo_driver_node.cpp)
+add_executable(${PROJECT_NAME}_node src/argo_node.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -68,12 +70,12 @@ include_directories(
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
-# add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-# target_link_libraries(${PROJECT_NAME}_node
-#   ${catkin_LIBRARIES}
-# )
+target_link_libraries(${PROJECT_NAME}_node
+   ${catkin_LIBRARIES}
+)
 
 #############
 ## Install ##
