@@ -27,6 +27,7 @@ install:
   - mv $CI_SOURCE_PATH .
 
 script:
+# Build and run the tests
   - cd ~/build_ws
   - catkin_make
   - catkin_make run_tests && catkin_test_results
