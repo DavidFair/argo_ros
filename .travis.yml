@@ -3,18 +3,28 @@ sudo: enabled
 language: cpp
 
 # Install ROS deps based on installation instructions here:
-# http://wiki.ros.org/lunar/Installation/Ubuntu
+# http://wiki.ros.org/kinetic/Installation/Source
 before_install:
   - sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'
   - sudo apt-key adv --keyserver hkp://ha.pool.sks-keyservers.net:80 --recv-key 421C365BD9FF1F717815A3895523BAEEB01FA116
   - sudo apt-get update
 
-  # Lunar specific lines
-  - sudo apt-get install ros-lunar-ros-base
-  - source /opt/ros/lunar/setup.bash
-
+  # Build deps
+  - sudo apt-get install python-rosdep python-rosinstall-generator python-wstool python-rosinstall build-essential
   - sudo rosdep init
   - rosdep update
+
+  # Build ROS version we want
+  - mkdir ~/ros_catkin_ws
+  - rosinstall_generator ros_comm --rosdistro kinetic --deps --wet-only --tar > kinetic-ros_comm-wet.rosinstall
+  - wstool init -j8 src kinetic-ros_comm-wet.rosinstall
+
+  # Pull in ROS deps
+  - rosdep install --from-paths src --ignore-src --rosdistro kinetic -y
+  - ./src/catkin/bin/catkin_make_isolated --install -DCMAKE_BUILD_TYPE=Release
+
+  # Lastly add all these files to our path
+  - source ~/ros_catkin_ws/install_isolated/setup.bash
 
 install:
   # Based on initial tutorials for creating ROS workspaces
