@@ -40,7 +40,7 @@ install:
   - source devel/setup.bash
 
   - cd ~/build_ws/src
-  - mv $CI_SOURCE_PATH .
+  - ln -s $TRAVIS_BUILD_DIR .
 
 script:
 # Build and run the tests
