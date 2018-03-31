@@ -4,6 +4,11 @@ language: cpp
 
 # Install ROS deps based on installation instructions here:
 # http://wiki.ros.org/kinetic/Installation/Source
+
+cache:
+  directories:
+    - $HOME/ros_catkin_ws
+
 before_install:
   - sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'
   - sudo apt-key adv --keyserver hkp://ha.pool.sks-keyservers.net:80 --recv-key 421C365BD9FF1F717815A3895523BAEEB01FA116
@@ -15,7 +20,8 @@ before_install:
   - rosdep update
 
   # Build ROS version we want
-  - mkdir ~/ros_catkin_ws
+  - mkdir -p ~/ros_catkin_ws
+  - cd ~/ros_catkin_ws
   - rosinstall_generator ros_comm --rosdistro kinetic --deps --wet-only --tar > kinetic-ros_comm-wet.rosinstall
   - wstool init -j8 src kinetic-ros_comm-wet.rosinstall
 
