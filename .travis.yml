@@ -19,7 +19,7 @@ before_install:
   - sudo apt-get update
 
   # Set GCC 7 to default compiler
-  - sudo apt-get install -qq g++-7 gcc-7
+  - sudo apt-get install g++-7 gcc-7
   - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-7 90
   - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-7 90
 
@@ -32,7 +32,9 @@ before_install:
   - mkdir -p ~/ros_catkin_ws
   - cd ~/ros_catkin_ws
   - rosinstall_generator ros_comm --rosdistro kinetic --deps --wet-only --tar > kinetic-ros_comm-wet.rosinstall
-  - wstool init -j8 src kinetic-ros_comm-wet.rosinstall
+  # Only do init if the folder has not cloned from cache
+  - if [ ! -d "src" ]; then wstool init -j8 src kinetic-ros_comm-wet.rosinstall; fi
+  - wstool update -t src
 
   # Pull in ROS deps
   - rosdep install --from-paths src --ignore-src --rosdistro kinetic -y
