@@ -43,8 +43,8 @@ before_install:
   # We have to use our own gmock to avoid a bug with ubuntu 14.04 mixing gmock and gtest
   - sudo apt-get purge libgtest-dev
   - mkdir -p ~/build_ws/src
-  - git clone --depth=1 https://github.com/google/googletest.git
   - cd ~/build_ws/src
+  - git clone --depth=1 https://github.com/google/googletest.git
 
   - source ~/ros_catkin_ws/install_isolated/setup.bash
 
