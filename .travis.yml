@@ -41,7 +41,7 @@ before_install:
   - ./src/catkin/bin/catkin_make_isolated --install -DCMAKE_BUILD_TYPE=Release
 
   # Lastly add all these files to our path and purge system gtest/gmock
-  - sudo apt-get purge gtest-dev gmock-dev
+  - sudo apt-get purge libgtest-dev
   - source ~/ros_catkin_ws/install_isolated/setup.bash
 
 install:
