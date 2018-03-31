@@ -3,30 +3,62 @@ sudo: enabled
 language: cpp
 
 # Install ROS deps based on installation instructions here:
-# http://wiki.ros.org/lunar/Installation/Ubuntu
+# http://wiki.ros.org/kinetic/Installation/Source
+
+cache:
+  directories:
+    - $HOME/ros_catkin_ws
+
 before_install:
+  # Use latest compiler
+  - sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+
+  # Add ros sources
   - sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'
   - sudo apt-key adv --keyserver hkp://ha.pool.sks-keyservers.net:80 --recv-key 421C365BD9FF1F717815A3895523BAEEB01FA116
   - sudo apt-get update
 
-  # Lunar specific lines
-  - sudo apt-get install ros-lunar-ros-base
-  - source /opt/ros/lunar/setup.bash
+  # Set GCC 7 to default compiler
+  - sudo apt-get install g++-7 gcc-7
+  - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-7 90
+  - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-7 90
 
+  # Build deps
+  - sudo apt-get install python-rosdep python-rosinstall-generator python-wstool python-rosinstall build-essential
   - sudo rosdep init
   - rosdep update
 
+  # Build ROS version we want
+  - mkdir -p ~/ros_catkin_ws
+  - cd ~/ros_catkin_ws
+  - rosinstall_generator ros_comm --rosdistro kinetic --deps --wet-only --tar > kinetic-ros_comm-wet.rosinstall
+  # Only do init if the folder has not cloned from cache
+  - if [ ! -d "src" ]; then wstool init -j8 src kinetic-ros_comm-wet.rosinstall; fi
+  - wstool update -t src
+
+  # Pull in ROS deps
+  - rosdep install --from-paths src --ignore-src --rosdistro kinetic -y
+  - ./src/catkin/bin/catkin_make_isolated --install -DCMAKE_BUILD_TYPE=Release
+
+  # We have to use our own gmock to avoid a bug with ubuntu 14.04 mixing gmock and gtest
+  - sudo apt-get purge libgtest-dev
+  - mkdir -p ~/build_ws/src
+  - cd ~/build_ws/src
+  - git clone --depth=1 https://github.com/google/googletest.git
+
+  - source ~/ros_catkin_ws/install_isolated/setup.bash
+
 install:
   # Based on initial tutorials for creating ROS workspaces
-  - mkdir -p ~/build_ws/src
   - cd ~/build_ws
   - catkin_make
   - source devel/setup.bash
 
   - cd ~/build_ws/src
-  - mv $CI_SOURCE_PATH .
+  - ln -s $TRAVIS_BUILD_DIR .
 
 script:
+# Build and run the tests
   - cd ~/build_ws
   - catkin_make
   - catkin_make run_tests && catkin_test_results
