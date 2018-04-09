@@ -4,6 +4,7 @@
 #include <string>
 
 class SerialInterface {
+public:
   virtual std::string read() = 0;
   virtual void write(const std::string &s) = 0;
   virtual void openPort(const std::string &portAddress, int baudRate) = 0;

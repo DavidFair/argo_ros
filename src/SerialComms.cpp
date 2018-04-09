@@ -10,6 +10,8 @@
 #include <stdexcept>
 #include <string>
 
+#include "ros/ros.h"
+
 #include "SerialComms.hpp"
 
 namespace {
@@ -32,7 +34,9 @@ void SerialComms::openPort(const std::string &portAddress, const int baudRate) {
   fileDescriptor = open(portAddress.c_str(), (O_RDWR | O_NOCTTY | O_NDELAY));
   if (fileDescriptor < 0) {
     // Failed to open port
-    const std::string e{"Could not open port at: " + portAddress};
+    const std::string e{"Could not open port at: " + portAddress +
+                        "\nIs the Arduino connected and on the correct TTY?"};
+    ROS_ERROR(e.c_str());
     throw std::runtime_error(e);
   }
 
@@ -49,6 +53,7 @@ void SerialComms::setSerialPortSettings(int fileDescriptor, int baudRate) {
   // Get existing tty settings
   if (tcgetattr(fileDescriptor, &serialOptions) != 0) {
     const std::string e = "error " + std::to_string(errno) + " from tcgetattr";
+    ROS_ERROR(e.c_str());
     throw std::runtime_error(e);
   }
 
@@ -59,6 +64,7 @@ void SerialComms::setSerialPortSettings(int fileDescriptor, int baudRate) {
   getArduinoSerialFlags(serialOptions);
   if (tcsetattr(fileDescriptor, TCSANOW, &serialOptions) != 0) {
     const std::string e = "error " + std::to_string(errno) + " from tcsetattr";
+    ROS_ERROR(e.c_str());
     throw std::runtime_error(e);
   }
   // ----------------------------------------------

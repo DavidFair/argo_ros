@@ -1,5 +1,6 @@
 #ifndef ARGO_DRIVER_HPP_
 #define ARGO_DRIVER_HPP_
+
 #include "ros/ros.h"
 
 #include "SerialInterface.hpp"
