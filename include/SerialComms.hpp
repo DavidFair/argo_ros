@@ -17,9 +17,11 @@ public:
   void write(const std::string &s) override;
 
 private:
+  void isSerialValid() const;
   void setSerialPortSettings(int fileDescriptor, int baudRate);
 
   int fileDescriptor{-1};
+  bool isValidPort{false};
 };
 
 #endif

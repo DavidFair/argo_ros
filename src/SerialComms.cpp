@@ -21,17 +21,52 @@ void getArduinoSerialFlags(termios &serialControl) {
   serialControl.c_iflag |= (IGNBRK | BRKINT | ICRNL | IMAXBEL | IXON);
   serialControl.c_oflag |= (ONLCR | OPOST);
   serialControl.c_lflag |= (ISIG | ICANON | IEXTEN | NOFLSH);
+  // Ensure reading is non-blocking
+  serialControl.c_cc[VMIN] = 0;
+  serialControl.c_cc[VTIME] = 0;
+
   // Turn off echo
   serialControl.c_lflag &= ~(ECHO | ECHOE | ECHOK | ECHONL);
 }
+
+std::string getErrorMsg() { return std::string{strerror(errno)}; }
 } // End of anonymous namespace
 
-std::string SerialComms::read() { return std::string{}; }
+std::string SerialComms::read() {
+  isSerialValid();
 
-void SerialComms::write(const std::string &s) {}
+  const int BUF_SIZE = 256;
+  char buf[BUF_SIZE];
+  memset(buf, 0, BUF_SIZE);
+  int count = ::read(fileDescriptor, buf, BUF_SIZE);
+  if (count < 0) {
+    const std::string e{
+        "Failed to read from serial device. Returned error was:\n" +
+        getErrorMsg()};
+    ROS_ERROR(e.c_str());
+    throw std::runtime_error(e);
+  }
+  return std::string(buf);
+}
+
+void SerialComms::write(const std::string &s) {
+  isSerialValid();
+  int count = ::write(fileDescriptor, s.c_str(), s.size());
+
+  if (count < 0) {
+    const std::string e{
+        "Failed to read from serial device. Returned error was:\n" +
+        getErrorMsg()};
+    ROS_ERROR(e.c_str());
+    throw std::runtime_error(e);
+  }
+}
 
 void SerialComms::openPort(const std::string &portAddress, const int baudRate) {
   fileDescriptor = open(portAddress.c_str(), (O_RDWR | O_NOCTTY | O_NDELAY));
+  // Ensure that we are not in blocking mode on the syscall side either
+  fcntl(fileDescriptor, F_SETFL, FNDELAY);
+
   if (fileDescriptor < 0) {
     // Failed to open port
     const std::string e{"Could not open port at: " + portAddress +
@@ -41,6 +76,7 @@ void SerialComms::openPort(const std::string &portAddress, const int baudRate) {
   }
 
   setSerialPortSettings(fileDescriptor, baudRate);
+  isValidPort = true;
 }
 
 void SerialComms::setSerialPortSettings(int fileDescriptor, int baudRate) {
@@ -52,7 +88,7 @@ void SerialComms::setSerialPortSettings(int fileDescriptor, int baudRate) {
 
   // Get existing tty settings
   if (tcgetattr(fileDescriptor, &serialOptions) != 0) {
-    const std::string e = "error " + std::to_string(errno) + " from tcgetattr";
+    const std::string e = "Error: '" + getErrorMsg() + "' from tcgetattr";
     ROS_ERROR(e.c_str());
     throw std::runtime_error(e);
   }
@@ -63,9 +99,19 @@ void SerialComms::setSerialPortSettings(int fileDescriptor, int baudRate) {
 
   getArduinoSerialFlags(serialOptions);
   if (tcsetattr(fileDescriptor, TCSANOW, &serialOptions) != 0) {
-    const std::string e = "error " + std::to_string(errno) + " from tcsetattr";
+    const std::string e = "Error: '" + getErrorMsg() + "' from tcsetattr";
     ROS_ERROR(e.c_str());
     throw std::runtime_error(e);
   }
   // ----------------------------------------------
+}
+
+// Private methods:
+void SerialComms::isSerialValid() const {
+  if (!isValidPort) {
+    const std::string e{
+        "Serial port was not setup before other functions were called"};
+    ROS_ERROR(e.c_str());
+    throw std::runtime_error(e);
+  }
 }
