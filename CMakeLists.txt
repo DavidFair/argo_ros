@@ -43,13 +43,13 @@ catkin_package(
 ## Your package locations should be listed before other locations
 include_directories(
 # include
+  include
   SYSTEM ${catkin_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
 add_library(${PROJECT_NAME}
-   src/argo_driver.cpp
-   src/publisher.cpp
+   src/ArgoDriver.cpp
 )
 
 ## Add cmake target dependencies of the library
@@ -60,7 +60,9 @@ add_library(${PROJECT_NAME}
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-add_executable(${PROJECT_NAME}_node src/argo_node.cpp)
+add_executable(${PROJECT_NAME}_node 
+               src/argo_node.cpp
+               src/SerialComms.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
