@@ -9,7 +9,7 @@
 class SerialComms : public SerialInterface {
 public:
   SerialComms() = default;
-  ~SerialComms() = default;
+  ~SerialComms();
 
   void openPort(const std::string &portAddress, const int baudRate) override;
 

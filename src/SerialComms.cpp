@@ -30,7 +30,26 @@ void getArduinoSerialFlags(termios &serialControl) {
 }
 
 std::string getErrorMsg() { return std::string{strerror(errno)}; }
+
+void throwLinuxError(const std::string &cause) {
+  const std::string e{cause + "\nError was: ' " + getErrorMsg() + "'"};
+  ROS_ERROR(e.c_str());
+  throw std::runtime_error(e);
+}
+
 } // End of anonymous namespace
+
+SerialComms::~SerialComms() {
+  if (!isValidPort) {
+    return;
+  }
+
+  if (::close(fileDescriptor) != 0) {
+    const std::string e{"Could not close serial port. Error:\n" +
+                        getErrorMsg()};
+    ROS_ERROR(e.c_str());
+  }
+}
 
 std::string SerialComms::read() {
   isSerialValid();
@@ -40,11 +59,7 @@ std::string SerialComms::read() {
   memset(buf, 0, BUF_SIZE);
   int count = ::read(fileDescriptor, buf, BUF_SIZE);
   if (count < 0) {
-    const std::string e{
-        "Failed to read from serial device. Returned error was:\n" +
-        getErrorMsg()};
-    ROS_ERROR(e.c_str());
-    throw std::runtime_error(e);
+    throwLinuxError("Failed to read from serial");
   }
   return std::string(buf);
 }
@@ -54,11 +69,7 @@ void SerialComms::write(const std::string &s) {
   int count = ::write(fileDescriptor, s.c_str(), s.size());
 
   if (count < 0) {
-    const std::string e{
-        "Failed to read from serial device. Returned error was:\n" +
-        getErrorMsg()};
-    ROS_ERROR(e.c_str());
-    throw std::runtime_error(e);
+    throwLinuxError("Failed to write to serial device");
   }
 }
 
@@ -88,9 +99,7 @@ void SerialComms::setSerialPortSettings(int fileDescriptor, int baudRate) {
 
   // Get existing tty settings
   if (tcgetattr(fileDescriptor, &serialOptions) != 0) {
-    const std::string e = "Error: '" + getErrorMsg() + "' from tcgetattr";
-    ROS_ERROR(e.c_str());
-    throw std::runtime_error(e);
+    throwLinuxError("tcgetattr failed whilst opening serial port");
   }
 
   // Set the baud rate
@@ -99,9 +108,7 @@ void SerialComms::setSerialPortSettings(int fileDescriptor, int baudRate) {
 
   getArduinoSerialFlags(serialOptions);
   if (tcsetattr(fileDescriptor, TCSANOW, &serialOptions) != 0) {
-    const std::string e = "Error: '" + getErrorMsg() + "' from tcsetattr";
-    ROS_ERROR(e.c_str());
-    throw std::runtime_error(e);
+    throwLinuxError("tcsetatrr failed to set the serial options");
   }
   // ----------------------------------------------
 }
