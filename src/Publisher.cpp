@@ -36,6 +36,9 @@ std::vector<std::string> splitCommands(const std::string &s) {
   return foundWords;
 }
 // ---------------
+
+void rosWarnWrapper(const std::string &s) { ROS_WARN(s.c_str()); }
+
 } // namespace
 
 Publisher::Publisher(ros::NodeHandle &handle) : m_handle(handle) {}
@@ -67,8 +70,7 @@ void Publisher::determineCommandType(const std::string &input) {
   } else if (input.find(SPEED_PREFIX) != std::string::npos) {
     parseSpeedOutput(input);
   } else {
-    const std::string out{"The following command is unknown:\n" + input};
-    ROS_WARN(out.c_str());
+    rosWarnWrapper("The following command is unknown:\n" + input);
   }
 }
 
@@ -79,9 +81,8 @@ void Publisher::parseEncoderOutput(const std::string &input) {
   // !e L_ENC:XXXX R_ENC:XXXX
   const size_t expectedParts = 5;
   if (seperateWords.size() != expectedParts) {
-    const std::string out =
-        "Encoder output did not split correclty. Input was:\n" + input;
-    ROS_WARN(out.c_str());
+    rosWarnWrapper("Encoder output did not split correclty. Input was:\n" +
+                   input);
     return;
   }
 
@@ -94,9 +95,8 @@ void Publisher::parseEncoderOutput(const std::string &input) {
     leftEncoderCount = std::stoi(seperateWords[lCountPos]);
     rightEncoderCount = std::stoi(seperateWords[rCountPos]);
   } catch (std::invalid_argument &e) {
-    const std::string out = "Failed to convert encoder val which was:\n" +
-                            input + "\nException was: " + e.what();
-    ROS_WARN(out.c_str());
+    rosWarnWrapper("Failed to convert encoder val which was:\n" + input +
+                   "\nException was: " + e.what());
     return;
   }
 
