@@ -60,7 +60,7 @@ add_library(${PROJECT_NAME}
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-add_executable(${PROJECT_NAME}_node 
+add_executable(${PROJECT_NAME}_node
                src/argo_node.cpp
                src/SerialComms.cpp)
 
@@ -121,8 +121,13 @@ target_link_libraries(${PROJECT_NAME}_node
 
 ## Add gtest based cpp test target and link libraries
 
-catkin_add_gtest(${PROJECT_NAME}-test test/test_argo_driver.cpp)
+catkin_add_gmock(${PROJECT_NAME}-test test/ArgoDriverTest.cpp)
 if(TARGET ${PROJECT_NAME}-test)
-   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
+   target_link_libraries(
+     ${PROJECT_NAME}-test
+
+     ${PROJECT_NAME}
+     ${catkin_LIBRARIES})
+
 endif()
 
