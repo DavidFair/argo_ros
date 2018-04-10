@@ -3,21 +3,23 @@
 
 #include "ros/ros.h"
 
+#include "Parser.hpp"
+
 class Publisher {
 public:
   Publisher(ros::NodeHandle &handle);
-  void parseIncomingBuffer(const std::string &received);
+
+  void publishEncoderCount(const EncoderData &data);
+  void publishCurrentSpeed(const SpeedData &data);
 
 private:
-  void determineCommandType(const std::string &input);
-
-  void parseEncoderOutput(const std::string &input);
-  void parseSpeedOutput(const std::string &input);
-
-  void publishEncoderCount(const int leftCount, const int rightCount);
-  void publishCurrentSpeed(const int leftWheels, const int rightWheels);
-
   ros::NodeHandle &m_handle;
+
+  ros::Publisher m_leftEncoderPub;
+  ros::Publisher m_rightEncoderPub;
+
+  ros::Publisher m_leftSpeedPub;
+  ros::Publisher m_rightSpeedPub;
 };
 
 #endif // PUBLISHER_HPP_
