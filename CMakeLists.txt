@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(argo_driver)
 
-## Compile as C++11, supported in ROS Kinetic and newer
-add_compile_options(-std=c++11)
+## Compile as C++14 standard
+add_compile_options(-std=c++14)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wpedantic -Werror")
 
 # Dependencies from ROS we need
@@ -43,13 +43,13 @@ catkin_package(
 ## Your package locations should be listed before other locations
 include_directories(
 # include
+  include
   SYSTEM ${catkin_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
 add_library(${PROJECT_NAME}
-   src/argo_driver.cpp
-   src/publisher.cpp
+   src/ArgoDriver.cpp
 )
 
 ## Add cmake target dependencies of the library
@@ -60,7 +60,9 @@ add_library(${PROJECT_NAME}
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-add_executable(${PROJECT_NAME}_node src/argo_node.cpp)
+add_executable(${PROJECT_NAME}_node
+               src/argo_node.cpp
+               src/SerialComms.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -74,6 +76,7 @@ add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catk
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(${PROJECT_NAME}_node
+   ${PROJECT_NAME}
    ${catkin_LIBRARIES}
 )
 
@@ -118,8 +121,13 @@ target_link_libraries(${PROJECT_NAME}_node
 
 ## Add gtest based cpp test target and link libraries
 
-catkin_add_gtest(${PROJECT_NAME}-test test/test_argo_driver.cpp)
+catkin_add_gmock(${PROJECT_NAME}-test test/ArgoDriverTest.cpp)
 if(TARGET ${PROJECT_NAME}-test)
-   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
+   target_link_libraries(
+     ${PROJECT_NAME}-test
+
+     ${PROJECT_NAME}
+     ${catkin_LIBRARIES})
+
 endif()
 
