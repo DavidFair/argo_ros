@@ -50,6 +50,7 @@ include_directories(
 ## Declare a C++ library
 add_library(${PROJECT_NAME}
    src/ArgoDriver.cpp
+   src/Publisher.cpp
 )
 
 ## Add cmake target dependencies of the library

@@ -3,6 +3,7 @@
 
 #include "ros/ros.h"
 
+#include "Publisher.hpp"
 #include "SerialInterface.hpp"
 
 class ArgoDriver
@@ -17,6 +18,7 @@ private:
   ros::NodeHandle &m_node;
   ros::Timer m_loopTimer;
 
+  Publisher m_publisher;
   SerialInterface &m_serial;
 };
 
