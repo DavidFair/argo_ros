@@ -3,9 +3,10 @@
 #include "ArgoDriver.hpp"
 #include "SerialInterface.hpp"
 
-namespace {
+namespace
+{
 const std::string DEFAULT_TTY = "/dev/ttyACM0";
-const double LOOP_TIMER = 100; // Time in ms
+const double LOOP_TIMER = 50; // Time in ms
 const double MILLIS_PER_SEC = 1000;
 
 } // Anonymous namespace
@@ -13,13 +14,19 @@ const double MILLIS_PER_SEC = 1000;
 ArgoDriver::ArgoDriver(SerialInterface &commsObj, ros::NodeHandle &nodeHandle)
     : m_node(nodeHandle), m_serial(commsObj) {}
 
-void ArgoDriver::loop(const ros::TimerEvent &event) {
+void ArgoDriver::loop(const ros::TimerEvent &event)
+{
+  // Prevent the timer from firing again until we are finished
   m_loopTimer.stop();
+
+  const std::string serialOutput = m_serial.read();
+  std::cout << serialOutput;
 
   m_loopTimer.start();
 }
 
-void ArgoDriver::setup() {
+void ArgoDriver::setup()
+{
   // Get the target tty port
   int baudRate = 0;
   std::string targetPort;

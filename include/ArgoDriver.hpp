@@ -5,11 +5,12 @@
 
 #include "SerialInterface.hpp"
 
-class ArgoDriver {
+class ArgoDriver
+{
 public:
   ArgoDriver(SerialInterface &commsObj, ros::NodeHandle &nodeHandle);
 
-  void loop(const ros::TimerEvent &event);
+  void loop(const ros::TimerEvent &);
   void setup();
 
 private:
