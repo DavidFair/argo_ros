@@ -60,5 +60,7 @@ install:
 script:
 # Build and run the tests
   - cd ~/build_ws
+  - roscore &
+  - sleep 5
   - catkin_make
   - catkin_make run_tests && catkin_test_results
