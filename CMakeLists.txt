@@ -50,6 +50,7 @@ include_directories(
 ## Declare a C++ library
 add_library(${PROJECT_NAME}
    src/ArgoDriver.cpp
+   src/Parser.cpp
    src/Publisher.cpp
 )
 
@@ -63,7 +64,6 @@ add_library(${PROJECT_NAME}
 ## The recommended prefix ensures that target names across packages don't collide
 add_executable(${PROJECT_NAME}_node
                src/argo_node.cpp
-               src/Parser.cpp
                src/SerialComms.cpp)
 
 ## Rename C++ executable without prefix
@@ -123,7 +123,11 @@ target_link_libraries(${PROJECT_NAME}_node
 
 ## Add gtest based cpp test target and link libraries
 
-catkin_add_gmock(${PROJECT_NAME}-test test/ArgoDriverTest.cpp)
+catkin_add_gmock(${PROJECT_NAME}-test
+  test/ArgoDriverTest.cpp
+  test/ParserTest.cpp)
+
+
 if(TARGET ${PROJECT_NAME}-test)
    target_link_libraries(
      ${PROJECT_NAME}-test

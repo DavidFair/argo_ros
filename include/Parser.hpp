@@ -27,14 +27,13 @@ struct SpeedData {
 };
 
 class Parser {
-  Parser() = delete;
-
 public:
   static CommandType parseIncomingBuffer(const std::string &received);
   static EncoderData parseEncoderCommand(const std::string &input);
   static SpeedData parseSpeedCommand(const std::string &input);
 
 private:
+  Parser() = delete;
   static CommandType determineCommandType(const std::string &input);
 
   static std::vector<std::string> splitCommands(const std::string &s);

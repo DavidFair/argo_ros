@@ -1,3 +1,5 @@
+#include <string>
+
 #include "ros/ros.h"
 
 #include "Parser.hpp"
@@ -52,7 +54,7 @@ CommandType Parser::determineCommandType(const std::string &input) {
   return CommandType::None;
 }
 
-EncoderData Parser::parseEncoderOutput(const std::string &input) {
+EncoderData Parser::parseEncoderCommand(const std::string &input) {
   auto seperateWords = splitCommands(input);
 
   // Expected format is 5 parts where space and : are delims
@@ -61,7 +63,7 @@ EncoderData Parser::parseEncoderOutput(const std::string &input) {
   if (seperateWords.size() != expectedParts) {
     rosWarnWrapper("Encoder output did not split correclty. Input was:\n" +
                    input);
-    return;
+    return {};
   }
 
   int leftEncoderCount{0}, rightEncoderCount{0};
@@ -75,15 +77,39 @@ EncoderData Parser::parseEncoderOutput(const std::string &input) {
   } catch (std::invalid_argument &e) {
     rosWarnWrapper("Failed to convert encoder val which was:\n" + input +
                    "\nException was: " + e.what());
-    return;
+    return {};
   }
 
   return {leftEncoderCount, rightEncoderCount};
 }
 
-SpeedData Parser::parseSpeedOutput(const std::string &input) {
-  // TODO
-  return;
+SpeedData Parser::parseSpeedCommand(const std::string &input) {
+  auto seperateWords = splitCommands(input);
+
+  // Expected format is 5 parts where space and : are delims
+  // !s L_SPEED:XXXX R_SPEED:XXXX
+  const size_t expectedParts = 5;
+  if (seperateWords.size() != expectedParts) {
+    rosWarnWrapper("Encoder output did not split correclty. Input was:\n" +
+                   input);
+    return {};
+  }
+
+  int leftWheelSpeed{0}, rightWheelSpeed{0};
+
+  // Position of the left and right vals
+  const size_t lCountPos = 2, rCountPos = 4;
+
+  try {
+    leftWheelSpeed = std::stoi(seperateWords[lCountPos]);
+    rightWheelSpeed = std::stoi(seperateWords[rCountPos]);
+  } catch (std::invalid_argument &e) {
+    rosWarnWrapper("Failed to convert encoder val which was:\n" + input +
+                   "\nException was: " + e.what());
+    return {};
+  }
+
+  return {leftWheelSpeed, rightWheelSpeed};
 }
 
 // Adapted from https://stackoverflow.com/a/7621814
