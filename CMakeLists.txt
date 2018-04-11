@@ -50,6 +50,8 @@ include_directories(
 ## Declare a C++ library
 add_library(${PROJECT_NAME}
    src/ArgoDriver.cpp
+   src/Parser.cpp
+   src/Publisher.cpp
 )
 
 ## Add cmake target dependencies of the library
@@ -121,13 +123,15 @@ target_link_libraries(${PROJECT_NAME}_node
 
 ## Add gtest based cpp test target and link libraries
 
-catkin_add_gmock(${PROJECT_NAME}-test test/ArgoDriverTest.cpp)
+catkin_add_gmock(${PROJECT_NAME}-test
+  test/ArgoDriverTest.cpp
+  test/ParserTest.cpp)
+
+
 if(TARGET ${PROJECT_NAME}-test)
    target_link_libraries(
      ${PROJECT_NAME}-test
-
      ${PROJECT_NAME}
      ${catkin_LIBRARIES})
-
 endif()
 
