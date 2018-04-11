@@ -6,7 +6,7 @@ add_compile_options(-std=c++14)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wpedantic -Werror")
 
 # Dependencies from ROS we need
-set(ROS_DEPS roscpp std_msgs)
+set(ROS_DEPS roscpp std_msgs message_generation)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -18,6 +18,19 @@ find_package(catkin REQUIRED COMPONENTS
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
+## Specify the message files required to provide a service interface
+add_service_files(
+  FILES
+  SetTargetOdom.srv
+  SetWheelSpeeds.srv
+)
+
+## Indicate to CMake we require the following external services
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+)
+
 ###################################
 ## catkin specific configuration ##
 ###################################
@@ -27,6 +40,7 @@ find_package(catkin REQUIRED COMPONENTS
 ## LIBRARIES: libraries you create in this project that dependent projects also need
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
+
 
 catkin_package(
   INCLUDE_DIRS include
@@ -42,7 +56,6 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-# include
   include
   SYSTEM ${catkin_INCLUDE_DIRS}
 )
@@ -52,6 +65,7 @@ add_library(${PROJECT_NAME}
    src/ArgoDriver.cpp
    src/Parser.cpp
    src/Publisher.cpp
+   src/Services.cpp
 )
 
 ## Add cmake target dependencies of the library

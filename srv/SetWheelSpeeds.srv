@@ -1,0 +1,3 @@
+# Both speeds are in millis per second
+int16 targetLeftWheelSpeed
+int16 targetRightWheelSpeed

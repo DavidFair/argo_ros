@@ -13,8 +13,6 @@ public:
   void publishCurrentSpeed(const SpeedData &data);
 
 private:
-  ros::NodeHandle &m_handle;
-
   ros::Publisher m_leftEncoderPub;
   ros::Publisher m_rightEncoderPub;
 
