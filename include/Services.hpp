@@ -16,6 +16,9 @@ public:
   void startTimers();
 
 private:
+  void createStraightLineTimer(const ros::Duration &time,
+                               const int targetSpeed);
+
   void setNewSpeed(const int leftWheel, const int rightWheel);
 
   bool setTargetOdom(argo_driver::SetTargetOdom::Request &req,
