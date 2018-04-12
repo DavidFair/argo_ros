@@ -3,7 +3,7 @@
 
 #include "ros/ros.h"
 
-#include "Parser.hpp"
+#include "CommsParser.hpp"
 
 class Publisher {
 public:
@@ -13,8 +13,6 @@ public:
   void publishCurrentSpeed(const SpeedData &data);
 
 private:
-  ros::NodeHandle &m_handle;
-
   ros::Publisher m_leftEncoderPub;
   ros::Publisher m_rightEncoderPub;
 

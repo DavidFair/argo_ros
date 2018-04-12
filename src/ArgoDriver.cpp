@@ -1,27 +1,45 @@
 #include "ros/ros.h"
 
 #include "ArgoDriver.hpp"
-#include "Parser.hpp"
+#include "CommsParser.hpp"
 #include "Publisher.hpp"
 #include "SerialInterface.hpp"
 
 namespace {
 const std::string DEFAULT_TTY = "/dev/ttyACM0";
-const double LOOP_TIMER = 50; // Time in ms
+const double DEFAULT_MAX_VEL = 3; // Meters per second
+
+const double LOOP_TIMER = 50; // Time in ms per loop
+const double MILLIS_PER_METER = 1000;
 const double MILLIS_PER_SEC = 1000;
 
 } // Anonymous namespace
 
 ArgoDriver::ArgoDriver(SerialInterface &commsObj, ros::NodeHandle &nodeHandle)
-    : m_node(nodeHandle), m_publisher(nodeHandle), m_serial(commsObj) {}
+    : m_node(nodeHandle),
+      m_maxVelocity(nodeHandle.param<double>("maxVelocity", DEFAULT_MAX_VEL) *
+                    MILLIS_PER_METER),
+      m_previousSpeedData(), m_publisher(nodeHandle), m_serial(commsObj),
+      m_services(nodeHandle) {}
 
 void ArgoDriver::loop(const ros::TimerEvent &event) {
   // Prevent the timer from firing again until we are finished
   m_loopTimer.stop();
 
+  // Read from Arduino
   const std::string serialInput = m_serial.read();
-  auto commandType = Parser::parseIncomingBuffer(serialInput);
+  auto commandType = CommsParser::parseIncomingBuffer(serialInput);
   parseCommand(commandType, serialInput);
+
+  // Get our current target speed and send an update if required
+  auto currentSpeedTarget = m_services.getTargetSpeed();
+  if (!(currentSpeedTarget == m_previousSpeedData)) {
+    m_previousSpeedData = currentSpeedTarget;
+    m_serial.write(CommsParser::getSpeedCommand(currentSpeedTarget));
+  }
+
+  // Start any pending timers if there are any
+  m_services.startTimers();
 
   m_loopTimer.start();
 }
@@ -48,12 +66,12 @@ void ArgoDriver::parseCommand(CommandType type, const std::string &s) {
   case CommandType::None:
     return;
   case CommandType::Encoder: {
-    auto encoderData = Parser::parseEncoderCommand(s);
+    auto encoderData = CommsParser::parseEncoderCommand(s);
     m_publisher.publishEncoderCount(encoderData);
     break;
   }
   case CommandType::Speed: {
-    auto speedData = Parser::parseSpeedCommand(s);
+    auto speedData = CommsParser::parseSpeedCommand(s);
     m_publisher.publishCurrentSpeed(speedData);
     break;
   }

@@ -6,7 +6,7 @@ add_compile_options(-std=c++14)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wpedantic -Werror")
 
 # Dependencies from ROS we need
-set(ROS_DEPS roscpp std_msgs)
+set(ROS_DEPS roscpp std_msgs message_generation)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -16,7 +16,21 @@ find_package(catkin REQUIRED COMPONENTS
 )
 
 ## System dependencies are found with CMake's conventions
-# find_package(Boost REQUIRED COMPONENTS system)
+find_package(Boost REQUIRED COMPONENTS system)
+
+## Specify the message files required to provide a service interface
+add_service_files(
+  FILES
+  SetTargetOdom.srv
+  SetWheelSpeeds.srv
+  Stop.srv
+)
+
+## Indicate to CMake we require the following external services
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+)
 
 ###################################
 ## catkin specific configuration ##
@@ -27,6 +41,7 @@ find_package(catkin REQUIRED COMPONENTS
 ## LIBRARIES: libraries you create in this project that dependent projects also need
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
+
 
 catkin_package(
   INCLUDE_DIRS include
@@ -42,7 +57,6 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-# include
   include
   SYSTEM ${catkin_INCLUDE_DIRS}
 )
@@ -50,9 +64,12 @@ include_directories(
 ## Declare a C++ library
 add_library(${PROJECT_NAME}
    src/ArgoDriver.cpp
-   src/Parser.cpp
+   src/CommsParser.cpp
    src/Publisher.cpp
+   src/Services.cpp
 )
+
+add_dependencies(${PROJECT_NAME} argo_driver_generate_messages_cpp)
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
@@ -125,13 +142,14 @@ target_link_libraries(${PROJECT_NAME}_node
 
 catkin_add_gmock(${PROJECT_NAME}-test
   test/ArgoDriverTest.cpp
-  test/ParserTest.cpp)
-
+  test/CommsParserTest.cpp
+  test/ServicesTest.cpp)
 
 if(TARGET ${PROJECT_NAME}-test)
    target_link_libraries(
      ${PROJECT_NAME}-test
      ${PROJECT_NAME}
-     ${catkin_LIBRARIES})
+     ${catkin_LIBRARIES}
+)
 endif()
 

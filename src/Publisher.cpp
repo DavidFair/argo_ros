@@ -19,19 +19,19 @@ const std::string R_SPEED_TOPIC_NAME{"right_speed"};
 } // namespace
 
 Publisher::Publisher(ros::NodeHandle &handle)
-    : m_handle(handle), m_leftEncoderPub(), m_rightEncoderPub(),
-      m_leftSpeedPub(), m_rightSpeedPub() {
+    : m_leftEncoderPub(), m_rightEncoderPub(), m_leftSpeedPub(),
+      m_rightSpeedPub() {
 
   // Create publishers - first encoder outputs
   m_leftEncoderPub =
-      m_handle.advertise<std_msgs::Int16>(L_ENC_TOPIC_NAME, TOPIC_QUEUE);
+      handle.advertise<std_msgs::Int16>(L_ENC_TOPIC_NAME, TOPIC_QUEUE);
   m_rightEncoderPub =
-      m_handle.advertise<std_msgs::Int16>(R_ENC_TOPIC_NAME, TOPIC_QUEUE);
+      handle.advertise<std_msgs::Int16>(R_ENC_TOPIC_NAME, TOPIC_QUEUE);
 
   m_leftSpeedPub =
-      m_handle.advertise<std_msgs::Int16>(L_SPEED_TOPIC_NAME, TOPIC_QUEUE);
+      handle.advertise<std_msgs::Int16>(L_SPEED_TOPIC_NAME, TOPIC_QUEUE);
   m_rightSpeedPub =
-      m_handle.advertise<std_msgs::Int16>(R_SPEED_TOPIC_NAME, TOPIC_QUEUE);
+      handle.advertise<std_msgs::Int16>(R_SPEED_TOPIC_NAME, TOPIC_QUEUE);
 }
 
 void Publisher::publishCurrentSpeed(const SpeedData &data) {
