@@ -1,7 +1,7 @@
 #include "ros/ros.h"
 
 #include "ArgoDriver.hpp"
-#include "Parser.hpp"
+#include "CommsParser.hpp"
 #include "Publisher.hpp"
 #include "SerialInterface.hpp"
 
@@ -21,7 +21,7 @@ void ArgoDriver::loop(const ros::TimerEvent &event) {
   m_loopTimer.stop();
 
   const std::string serialInput = m_serial.read();
-  auto commandType = Parser::parseIncomingBuffer(serialInput);
+  auto commandType = CommsParser::parseIncomingBuffer(serialInput);
   parseCommand(commandType, serialInput);
 
   m_loopTimer.start();
@@ -49,12 +49,12 @@ void ArgoDriver::parseCommand(CommandType type, const std::string &s) {
   case CommandType::None:
     return;
   case CommandType::Encoder: {
-    auto encoderData = Parser::parseEncoderCommand(s);
+    auto encoderData = CommsParser::parseEncoderCommand(s);
     m_publisher.publishEncoderCount(encoderData);
     break;
   }
   case CommandType::Speed: {
-    auto speedData = Parser::parseSpeedCommand(s);
+    auto speedData = CommsParser::parseSpeedCommand(s);
     m_publisher.publishCurrentSpeed(speedData);
     break;
   }

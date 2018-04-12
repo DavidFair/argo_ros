@@ -1,5 +1,5 @@
-#ifndef PARSER_HPP_
-#define PARSER_HPP_
+#ifndef COMMS_PARSER_HPP_
+#define COMMS_PARSER_HPP_
 
 #include <string>
 #include <vector>
@@ -26,17 +26,17 @@ struct SpeedData {
   int rightWheel;
 };
 
-class Parser {
+class CommsParser {
 public:
   static CommandType parseIncomingBuffer(const std::string &received);
   static EncoderData parseEncoderCommand(const std::string &input);
   static SpeedData parseSpeedCommand(const std::string &input);
 
 private:
-  Parser() = delete;
+  CommsParser() = delete;
   static CommandType determineCommandType(const std::string &input);
 
   static std::vector<std::string> splitCommands(const std::string &s);
 };
 
-#endif // PARSER_HPP_
+#endif // COMMS_PARSER_HPP_

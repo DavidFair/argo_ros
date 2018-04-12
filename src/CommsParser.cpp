@@ -2,7 +2,7 @@
 
 #include "ros/ros.h"
 
-#include "Parser.hpp"
+#include "CommsParser.hpp"
 
 namespace {
 
@@ -21,7 +21,7 @@ void rosWarnWrapper(const std::string &s) { ROS_WARN(s.c_str()); }
 
 } // End of anonymous namespace
 
-CommandType Parser::parseIncomingBuffer(const std::string &received) {
+CommandType CommsParser::parseIncomingBuffer(const std::string &received) {
   if (received.size() == 0) {
     // Nothing was received this loop
     return CommandType::None;
@@ -40,7 +40,7 @@ CommandType Parser::parseIncomingBuffer(const std::string &received) {
 
 // Private methods
 
-CommandType Parser::determineCommandType(const std::string &input) {
+CommandType CommsParser::determineCommandType(const std::string &input) {
   const std::string ENC_PREFIX = "!e";
   const std::string SPEED_PREFIX = "!s";
 
@@ -54,7 +54,7 @@ CommandType Parser::determineCommandType(const std::string &input) {
   return CommandType::None;
 }
 
-EncoderData Parser::parseEncoderCommand(const std::string &input) {
+EncoderData CommsParser::parseEncoderCommand(const std::string &input) {
   auto seperateWords = splitCommands(input);
 
   // Expected format is 5 parts where space and : are delims
@@ -83,7 +83,7 @@ EncoderData Parser::parseEncoderCommand(const std::string &input) {
   return {leftEncoderCount, rightEncoderCount};
 }
 
-SpeedData Parser::parseSpeedCommand(const std::string &input) {
+SpeedData CommsParser::parseSpeedCommand(const std::string &input) {
   auto seperateWords = splitCommands(input);
 
   // Expected format is 5 parts where space and : are delims
@@ -114,7 +114,7 @@ SpeedData Parser::parseSpeedCommand(const std::string &input) {
 
 // Adapted from https://stackoverflow.com/a/7621814
 // ----------------
-std::vector<std::string> Parser::splitCommands(const std::string &s) {
+std::vector<std::string> CommsParser::splitCommands(const std::string &s) {
   std::vector<std::string> foundWords;
   std::size_t prev = 0, pos;
 

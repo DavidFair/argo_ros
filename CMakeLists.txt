@@ -64,10 +64,12 @@ include_directories(
 ## Declare a C++ library
 add_library(${PROJECT_NAME}
    src/ArgoDriver.cpp
-   src/Parser.cpp
+   src/CommsParser.cpp
    src/Publisher.cpp
    src/Services.cpp
 )
+
+add_dependencies(${PROJECT_NAME} argo_driver_generate_messages_cpp)
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
@@ -140,10 +142,8 @@ target_link_libraries(${PROJECT_NAME}_node
 
 catkin_add_gmock(${PROJECT_NAME}-test
   test/ArgoDriverTest.cpp
-  test/ParserTest.cpp
+  test/CommsParserTest.cpp
   test/ServicesTest.cpp)
-
-add_dependencies(${PROJECT_NAME}-test ${catkin_EXPORTED_TARGETS})
 
 if(TARGET ${PROJECT_NAME}-test)
    target_link_libraries(
