@@ -28,6 +28,8 @@ struct SpeedData {
 
 class CommsParser {
 public:
+  static std::string getSpeedCommand(const SpeedData &data);
+
   static CommandType parseIncomingBuffer(const std::string &received);
   static EncoderData parseEncoderCommand(const std::string &input);
   static SpeedData parseSpeedCommand(const std::string &input);

@@ -1,3 +1,4 @@
+#include <sstream>
 #include <string>
 
 #include "ros/ros.h"
@@ -20,6 +21,16 @@ std::string trimLeading(const std::string &cs) {
 void rosWarnWrapper(const std::string &s) { ROS_WARN(s.c_str()); }
 
 } // End of anonymous namespace
+
+std::string CommsParser::getSpeedCommand(const SpeedData &data) {
+  // Expected format
+  // !T L_SPEED:xxxx R_SPEED:xxxx
+  std::ostringstream command;
+  command << "!T "
+          << "L_SPEED:" << data.leftWheel << ' '
+          << "R_SPEED:" << data.rightWheel << '\n';
+  return command.str();
+}
 
 CommandType CommsParser::parseIncomingBuffer(const std::string &received) {
   if (received.size() == 0) {

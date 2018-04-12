@@ -68,3 +68,16 @@ TEST(CommsParserTest, mangledSpeedInputIsHandled) {
   auto resultMangled = CommsParser::parseSpeedCommand(inputMangled);
   EXPECT_FALSE(resultMangled.isValid);
 }
+
+TEST(CommsCommands, getSpeedCommand) {
+  const int expectedLeftSpeed = 1123;
+  const int expectedRightSpeed = 2345;
+  SpeedData targetSpeed{expectedLeftSpeed, expectedRightSpeed};
+
+  const std::string expectedString{
+      "!T L_SPEED:" + std::to_string(expectedLeftSpeed) +
+      " R_SPEED:" + std::to_string(expectedRightSpeed) + '\n'};
+
+  auto result = CommsParser::getSpeedCommand(targetSpeed);
+  EXPECT_EQ(expectedString, result);
+}
