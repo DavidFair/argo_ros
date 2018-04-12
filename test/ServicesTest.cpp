@@ -177,8 +177,8 @@ TEST(Services_Odom, targetOdomTurnsOnSpot) {
   rosLoopRunner.join();
 
   auto targetSpeed = testInstance.getTargetSpeed();
-  EXPECT_EQ(targetSpeed.leftWheel, TURN_SPEED);
-  EXPECT_EQ(targetSpeed.rightWheel, -TURN_SPEED);
+  EXPECT_EQ(targetSpeed.leftWheel, TURN_SPEED * METERS_TO_MILLIS);
+  EXPECT_EQ(targetSpeed.rightWheel, -TURN_SPEED * METERS_TO_MILLIS);
 }
 
 TEST(Services_Odom, turnStopsAfterTime) {
@@ -289,8 +289,8 @@ TEST(Services_Odom, turnOnSpotHandlesBackwardsDirections) {
   rosLoopRunner.join();
 
   auto targetSpeed = testInstance.getTargetSpeed();
-  EXPECT_EQ(targetSpeed.leftWheel, -TURN_SPEED);
-  EXPECT_EQ(targetSpeed.rightWheel, TURN_SPEED);
+  EXPECT_EQ(targetSpeed.leftWheel, -TURN_SPEED * METERS_TO_MILLIS);
+  EXPECT_EQ(targetSpeed.rightWheel, TURN_SPEED * METERS_TO_MILLIS);
 }
 
 TEST(Services_Odom, turnOnSpotHandlesAntiClockwise) {
@@ -321,8 +321,8 @@ TEST(Services_Odom, turnOnSpotHandlesAntiClockwise) {
   rosLoopRunner.join();
 
   auto targetSpeed = testInstance.getTargetSpeed();
-  EXPECT_EQ(targetSpeed.leftWheel, -TURN_SPEED);
-  EXPECT_EQ(targetSpeed.rightWheel, TURN_SPEED);
+  EXPECT_EQ(targetSpeed.leftWheel, -TURN_SPEED * METERS_TO_MILLIS);
+  EXPECT_EQ(targetSpeed.rightWheel, TURN_SPEED * METERS_TO_MILLIS);
 }
 
 TEST(Services_Odom, turnHandlesReverse) {
