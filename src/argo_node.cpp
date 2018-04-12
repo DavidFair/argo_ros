@@ -5,8 +5,7 @@
 #include "ArgoDriver.hpp"
 #include "SerialComms.hpp"
 
-namespace
-{
+namespace {
 // Place globals into an anonymous namespace so they are local to the
 // current translation unit
 SerialComms m_commsObj;
@@ -15,11 +14,10 @@ std::unique_ptr<ros::NodeHandle> m_nodeHandle;
 std::unique_ptr<ArgoDriver> m_driver;
 } // Anonymous namespace
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
   ros::init(argc, argv, "argo_driver");
 
-  m_nodeHandle = std::make_unique<ros::NodeHandle>();
+  m_nodeHandle = std::make_unique<ros::NodeHandle>("argo_driver");
   m_driver = std::make_unique<ArgoDriver>(m_commsObj, *m_nodeHandle);
 
   ROS_INFO("Argo Driver - Node started");

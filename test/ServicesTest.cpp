@@ -1,0 +1,142 @@
+#include <atomic>
+#include <functional>
+#include <math.h>
+#include <thread>
+
+#include "ros/ros.h"
+#include "gtest/gtest.h"
+
+#include "Services.hpp"
+
+namespace {
+const std::string HANDLE_PATH{"argo_driver_test"};
+const std::string SET_SPEED_SERV_NAME{"set_target_speed"};
+const std::string SET_ODOM_SERV_NAME{"set_target_odom"};
+
+const int METERS_TO_MILLIS{1000};
+const double LENGTH_BETWEEN_WHEELS{1.473}; // Meters
+
+void rosSpinThread(std::atomic<bool> &runThread) {
+  while (runThread) {
+    ros::spinOnce();
+  }
+}
+
+int calculateChangeInVelocity(double radians, double distance,
+                              double velocity) {
+  double angularMomentum = radians / (distance / velocity);
+  double velocityChange = (angularMomentum * LENGTH_BETWEEN_WHEELS) / 2;
+  return velocityChange * METERS_TO_MILLIS;
+}
+
+double convertToRad(double degrees) { return degrees * (M_PI / 180); }
+
+} // namespace
+
+TEST(Services, targetSpeedSetsCorrectly) {
+  ros::NodeHandle handle(HANDLE_PATH);
+  Services testInstance(handle);
+
+  ros::ServiceClient speedClient =
+      handle.serviceClient<argo_driver::SetWheelSpeeds>(
+          '/' + HANDLE_PATH + '/' + SET_SPEED_SERV_NAME);
+
+  const double expectedLeftSpeed = 12.34;
+  const double expectedRightSpeed = 23.45;
+
+  argo_driver::SetWheelSpeeds msg;
+  msg.request.leftWheelTarget = expectedLeftSpeed;
+  msg.request.rightWheelTarget = expectedRightSpeed;
+
+  std::atomic<bool> runThread{true};
+  std::thread rosLoopRunner = std::thread(rosSpinThread, std::ref(runThread));
+  ASSERT_TRUE(speedClient.call(msg));
+
+  // Stop thread calling ros::spin
+  runThread = false;
+  rosLoopRunner.join();
+
+  auto targetSpeed = testInstance.getTargetSpeed();
+  EXPECT_EQ(targetSpeed.leftWheel, expectedLeftSpeed * METERS_TO_MILLIS);
+  EXPECT_EQ(targetSpeed.rightWheel, expectedRightSpeed * METERS_TO_MILLIS);
+}
+
+TEST(Services, targetOdomDegrees) {
+  ros::NodeHandle handle(HANDLE_PATH);
+  Services testInstance(handle);
+
+  ros::ServiceClient odomClient =
+      handle.serviceClient<argo_driver::SetTargetOdom>('/' + HANDLE_PATH + '/' +
+                                                       SET_ODOM_SERV_NAME);
+
+  const double distance = 1;         // meter
+  const double changeInDegrees = 20; // Need to turn 20 degrees in 1 meter
+  const double changeInRad =
+      convertToRad(changeInDegrees); // Used for our calcs
+  const double velocity = 10;        // m/s
+  const int expectedVelocityDiff =
+      calculateChangeInVelocity(changeInRad, distance, velocity);
+
+  argo_driver::SetTargetOdom msg;
+  msg.request.isRadians = false;
+  msg.request.targetClockwiseDegreesRotation = changeInDegrees;
+  msg.request.targetClockwiseRadiansRotation = 0;
+  msg.request.targetDistance = distance;
+  msg.request.targetSpeed = velocity;
+
+  std::atomic<bool> runThread{true};
+  std::thread rosLoopRunner = std::thread(rosSpinThread, std::ref(runThread));
+  ASSERT_TRUE(odomClient.call(msg));
+
+  // Stop thread calling ros::spin
+  runThread = false;
+  rosLoopRunner.join();
+
+  const double expectedLeftSpeed =
+      (velocity * METERS_TO_MILLIS) + expectedVelocityDiff;
+  const double expectedRightSpeed =
+      (velocity * METERS_TO_MILLIS) - expectedVelocityDiff;
+
+  auto targetSpeed = testInstance.getTargetSpeed();
+  EXPECT_EQ(targetSpeed.leftWheel, expectedLeftSpeed);
+  EXPECT_EQ(targetSpeed.rightWheel, expectedRightSpeed);
+}
+
+TEST(Services, targetOdomRadians) {
+  ros::NodeHandle handle(HANDLE_PATH);
+  Services testInstance(handle);
+
+  ros::ServiceClient odomClient =
+      handle.serviceClient<argo_driver::SetTargetOdom>('/' + HANDLE_PATH + '/' +
+                                                       SET_ODOM_SERV_NAME);
+
+  const double distance = 1;         // meter
+  const double changeInRad = M_PI_4; // or 45 degrees
+  const double velocity = 10;        // m/s
+  const int expectedVelocityDiff =
+      calculateChangeInVelocity(changeInRad, distance, velocity);
+
+  argo_driver::SetTargetOdom msg;
+  msg.request.isRadians = true;
+  msg.request.targetClockwiseDegreesRotation = 0;
+  msg.request.targetClockwiseRadiansRotation = changeInRad;
+  msg.request.targetDistance = distance;
+  msg.request.targetSpeed = velocity;
+
+  std::atomic<bool> runThread{true};
+  std::thread rosLoopRunner = std::thread(rosSpinThread, std::ref(runThread));
+  ASSERT_TRUE(odomClient.call(msg));
+
+  // Stop thread calling ros::spin
+  runThread = false;
+  rosLoopRunner.join();
+
+  const double expectedLeftSpeed =
+      (velocity * METERS_TO_MILLIS) + expectedVelocityDiff;
+  const double expectedRightSpeed =
+      (velocity * METERS_TO_MILLIS) - expectedVelocityDiff;
+
+  auto targetSpeed = testInstance.getTargetSpeed();
+  EXPECT_EQ(targetSpeed.leftWheel, expectedLeftSpeed);
+  EXPECT_EQ(targetSpeed.rightWheel, expectedRightSpeed);
+}

@@ -1,5 +1,6 @@
-# Target forward momentum in millis s^-1
-int16 targetSpeed
+# Target forward momentum in m/s
+float64 targetSpeed
+float64 targetDistance
 
 bool isRadians
 float64 targetClockwiseRadiansRotation

@@ -6,6 +6,7 @@
 #include "Parser.hpp"
 #include "Publisher.hpp"
 #include "SerialInterface.hpp"
+#include "Services.hpp"
 
 class ArgoDriver {
 public:
@@ -22,6 +23,7 @@ private:
 
   Publisher m_publisher;
   SerialInterface &m_serial;
+  Services m_services;
 };
 
 #endif

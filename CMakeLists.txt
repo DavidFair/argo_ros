@@ -16,13 +16,14 @@ find_package(catkin REQUIRED COMPONENTS
 )
 
 ## System dependencies are found with CMake's conventions
-# find_package(Boost REQUIRED COMPONENTS system)
+find_package(Boost REQUIRED COMPONENTS system)
 
 ## Specify the message files required to provide a service interface
 add_service_files(
   FILES
   SetTargetOdom.srv
   SetWheelSpeeds.srv
+  Stop.srv
 )
 
 ## Indicate to CMake we require the following external services
@@ -139,13 +140,16 @@ target_link_libraries(${PROJECT_NAME}_node
 
 catkin_add_gmock(${PROJECT_NAME}-test
   test/ArgoDriverTest.cpp
-  test/ParserTest.cpp)
+  test/ParserTest.cpp
+  test/ServicesTest.cpp)
 
+add_dependencies(${PROJECT_NAME}-test ${catkin_EXPORTED_TARGETS})
 
 if(TARGET ${PROJECT_NAME}-test)
    target_link_libraries(
      ${PROJECT_NAME}-test
      ${PROJECT_NAME}
-     ${catkin_LIBRARIES})
+     ${catkin_LIBRARIES}
+)
 endif()
 

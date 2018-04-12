@@ -13,7 +13,8 @@ const double MILLIS_PER_SEC = 1000;
 } // Anonymous namespace
 
 ArgoDriver::ArgoDriver(SerialInterface &commsObj, ros::NodeHandle &nodeHandle)
-    : m_node(nodeHandle), m_publisher(nodeHandle), m_serial(commsObj) {}
+    : m_node(nodeHandle), m_publisher(nodeHandle), m_serial(commsObj),
+      m_services(nodeHandle) {}
 
 void ArgoDriver::loop(const ros::TimerEvent &event) {
   // Prevent the timer from firing again until we are finished

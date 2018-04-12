@@ -1,3 +1,3 @@
-# Both speeds are in millis per second
-int16 targetLeftWheelSpeed
-int16 targetRightWheelSpeed
+# Both speeds are in meters per second
+float64 leftWheelTarget
+float64 rightWheelTarget
