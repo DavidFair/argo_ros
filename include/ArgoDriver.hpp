@@ -21,6 +21,9 @@ private:
   ros::NodeHandle &m_node;
   ros::Timer m_loopTimer;
 
+  const int m_maxVelocity;
+  SpeedData m_previousSpeedData;
+
   Publisher m_publisher;
   SerialInterface &m_serial;
   Services m_services;

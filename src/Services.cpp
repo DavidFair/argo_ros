@@ -145,6 +145,9 @@ bool Services::setTargetOdom(argo_driver::SetTargetOdom::Request &req,
     targetLeftSpeed = isClockwise ? TURN_SPEED : -TURN_SPEED;
     targetRightSpeed = isClockwise ? -TURN_SPEED : TURN_SPEED;
 
+    targetLeftSpeed *= METERS_TO_MILLIS;
+    targetRightSpeed *= METERS_TO_MILLIS;
+
     createStraightLineTimer(ros::Duration(turnTime * 1.1), 0);
   }
 

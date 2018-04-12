@@ -7,22 +7,39 @@
 
 namespace {
 const std::string DEFAULT_TTY = "/dev/ttyACM0";
-const double LOOP_TIMER = 50; // Time in ms
+const double DEFAULT_MAX_VEL = 3; // Meters per second
+
+const double LOOP_TIMER = 50; // Time in ms per loop
+const double MILLIS_PER_METER = 1000;
 const double MILLIS_PER_SEC = 1000;
 
 } // Anonymous namespace
 
 ArgoDriver::ArgoDriver(SerialInterface &commsObj, ros::NodeHandle &nodeHandle)
-    : m_node(nodeHandle), m_publisher(nodeHandle), m_serial(commsObj),
+    : m_node(nodeHandle),
+      m_maxVelocity(nodeHandle.param<double>("maxVelocity", DEFAULT_MAX_VEL) *
+                    MILLIS_PER_METER),
+      m_previousSpeedData(), m_publisher(nodeHandle), m_serial(commsObj),
       m_services(nodeHandle) {}
 
 void ArgoDriver::loop(const ros::TimerEvent &event) {
   // Prevent the timer from firing again until we are finished
   m_loopTimer.stop();
 
+  // Read from Arduino
   const std::string serialInput = m_serial.read();
   auto commandType = CommsParser::parseIncomingBuffer(serialInput);
   parseCommand(commandType, serialInput);
+
+  // Get our current target speed and send an update if required
+  auto currentSpeedTarget = m_services.getTargetSpeed();
+  if (!(currentSpeedTarget == m_previousSpeedData)) {
+    m_previousSpeedData = currentSpeedTarget;
+    m_serial.write(CommsParser::getSpeedCommand(currentSpeedTarget));
+  }
+
+  // Start any pending timers if there are any
+  m_services.startTimers();
 
   m_loopTimer.start();
 }

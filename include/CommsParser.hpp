@@ -21,6 +21,11 @@ struct SpeedData {
   SpeedData(int left, int right)
       : isValid(true), leftWheel(left), rightWheel(right) {}
 
+  bool operator==(const SpeedData &other) {
+    return isValid == other.isValid && leftWheel == other.leftWheel &&
+           rightWheel == other.rightWheel;
+  }
+
   bool isValid;
   int leftWheel;
   int rightWheel;
