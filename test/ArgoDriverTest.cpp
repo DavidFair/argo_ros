@@ -1,7 +1,9 @@
-#include <gtest/gtest.h>
+#include <atomic>
+#include <thread>
 
 #include "ros/ros.h"
 #include "std_msgs/Int16.h"
+#include "gtest/gtest.h"
 
 #include "ArgoDriver.hpp"
 #include "SerialCommsMock.hpp"
@@ -13,16 +15,25 @@ using ::testing::Test;
 using ::testing::_;
 
 namespace {
+const std::string HANDLE_PATH{"argo_driver_test"};
+
 class ArgoDriverFixture : public ::testing::Test {
 protected:
   ArgoDriverFixture()
-      : handle(), mockComms(),
+      : handle(HANDLE_PATH), mockComms(),
         testInstance(static_cast<SerialInterface &>(mockComms), handle) {}
 
   ros::NodeHandle handle;
   NiceMock<SerialCommsMock> mockComms;
   ArgoDriver testInstance;
 };
+
+void spinRos(std::atomic<bool> &keepSpinning) {
+  while (keepSpinning) {
+    ros::spinOnce();
+  }
+}
+
 } // End of anonymous namespace
 
 TEST_F(ArgoDriverFixture, setupOpensSerial) {
@@ -36,6 +47,32 @@ TEST_F(ArgoDriverFixture, loopCallsReadOnce) {
 
   ros::TimerEvent fakeEvent;
   testInstance.loop(fakeEvent);
+}
+
+TEST_F(ArgoDriverFixture, newSpeedIsWrittenToSerial) {
+  const std::string targetService = {"set_target_speed"};
+
+  ros::ServiceClient speedClient =
+      handle.serviceClient<argo_driver::SetWheelSpeeds>('/' + HANDLE_PATH +
+                                                        '/' + targetService);
+
+  argo_driver::SetWheelSpeeds msg;
+  msg.request.leftWheelTarget = 1;
+  msg.request.rightWheelTarget = 2;
+
+  std::atomic<bool> runThread{true};
+  std::thread rosLoopRunner = std::thread(spinRos, std::ref(runThread));
+
+  ASSERT_TRUE(speedClient.call(msg));
+
+  // Stop thread calling ros::spin
+  runThread = false;
+  rosLoopRunner.join();
+
+  const std::string expectedString{"!T L_SPEED:1000 R_SPEED:2000\n"};
+  EXPECT_CALL(mockComms, write(expectedString)).Times(1);
+
+  testInstance.loop(ros::TimerEvent{});
 }
 
 int main(int argc, char **argv) {

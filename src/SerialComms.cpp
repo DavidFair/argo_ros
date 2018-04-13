@@ -16,15 +16,17 @@
 
 namespace {
 void getArduinoSerialFlags(termios &serialControl) {
-  // Options taken from https://playground.arduino.cc/Interfacing/LinuxTTY
+  // Options adapted from https://playground.arduino.cc/Interfacing/LinuxTTY
   serialControl.c_cflag |= CRTSCTS;
   serialControl.c_iflag |= (IGNBRK | BRKINT | IMAXBEL | IXON);
-  serialControl.c_oflag |= (ONLCR | OPOST);
+  serialControl.c_oflag |= OPOST;
   serialControl.c_lflag |= (ISIG | ICANON | IEXTEN | NOFLSH);
 
   // Turn off echo
   serialControl.c_lflag &= ~(ECHO | ECHOE | ECHOK | ECHONL);
   serialControl.c_iflag &= ~ICRNL;
+  // Do not convert LF to CRLF
+  serialControl.c_oflag &= ~ONLCR;
 }
 
 std::string getErrorMsg() { return std::string{strerror(errno)}; }

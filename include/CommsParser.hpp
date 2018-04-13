@@ -34,6 +34,7 @@ struct SpeedData {
 class CommsParser {
 public:
   static std::string getSpeedCommand(const SpeedData &data);
+  static std::string getPingCommand();
 
   static CommandType parseIncomingBuffer(const std::string &received);
   static EncoderData parseEncoderCommand(const std::string &input);

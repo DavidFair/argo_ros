@@ -22,6 +22,11 @@ void rosWarnWrapper(const std::string &s) { ROS_WARN(s.c_str()); }
 
 } // End of anonymous namespace
 
+std::string CommsParser::getPingCommand() {
+  // !P is the ping command
+  return {"!P\n"};
+}
+
 std::string CommsParser::getSpeedCommand(const SpeedData &data) {
   // Expected format
   // !T L_SPEED:xxxx R_SPEED:xxxx
