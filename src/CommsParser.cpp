@@ -22,6 +22,16 @@ void rosWarnWrapper(const std::string &s) { ROS_WARN(s.c_str()); }
 
 } // End of anonymous namespace
 
+std::string CommsParser::getDeadmanCommand() {
+  // !D is the command to enter deadman mode
+  return {"!D\n"};
+}
+
+std::string CommsParser::getPingCommand() {
+  // !P is the ping command
+  return {"!P\n"};
+}
+
 std::string CommsParser::getSpeedCommand(const SpeedData &data) {
   // Expected format
   // !T L_SPEED:xxxx R_SPEED:xxxx
@@ -53,12 +63,15 @@ CommandType CommsParser::parseIncomingBuffer(const std::string &received) {
 
 CommandType CommsParser::determineCommandType(const std::string &input) {
   const std::string ENC_PREFIX = "!e";
+  const std::string PING_PREFIX = "!p";
   const std::string SPEED_PREFIX = "!s";
 
   if (input.find(ENC_PREFIX) != std::string::npos) {
     return CommandType::Encoder;
   } else if (input.find(SPEED_PREFIX) != std::string::npos) {
     return CommandType::Speed;
+  } else if (input.find(PING_PREFIX) != std::string::npos) {
+    return CommandType::Ping;
   }
 
   rosWarnWrapper("The following command is unknown:\n" + input);
