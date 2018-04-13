@@ -80,7 +80,7 @@ void SerialComms::write(const std::string &s) {
     throwLinuxError("Failed to write to serial device");
   } else {
     const std::string out{"Wrote to Arduino:\n" + s};
-    ROS_INFO(out.c_str());
+    ROS_DEBUG(out.c_str());
   }
 }
 

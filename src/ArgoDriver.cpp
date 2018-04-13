@@ -1,3 +1,6 @@
+#include <chrono>
+#include <string>
+
 #include "ros/ros.h"
 
 #include "ArgoDriver.hpp"
@@ -6,42 +9,49 @@
 #include "SerialInterface.hpp"
 
 namespace {
+using namespace std::chrono_literals;
+
+// ROS defaults
 const std::string DEFAULT_TTY = "/dev/ttyACM0";
 const double DEFAULT_MAX_VEL = 3; // Meters per second
 
-const double LOOP_TIMER = 50; // Time in ms per loop
 const double MILLIS_PER_METER = 1000;
 const double MILLIS_PER_SEC = 1000;
 
+const double LOOP_TIMER = 50; // Time in ms per loop
+const auto TIMEOUT_DURATION = 250ms;
+
 } // Anonymous namespace
 
-ArgoDriver::ArgoDriver(SerialInterface &commsObj, ros::NodeHandle &nodeHandle)
+ArgoDriver::ArgoDriver(SerialInterface &commsObj, ros::NodeHandle &nodeHandle,
+                       bool useTimeouts)
     : m_node(nodeHandle),
       m_maxVelocity(nodeHandle.param<double>("maxVelocity", DEFAULT_MAX_VEL) *
                     MILLIS_PER_METER),
-      m_previousSpeedData(), m_publisher(nodeHandle), m_serial(commsObj),
-      m_services(nodeHandle) {}
+      m_previousSpeedData(), m_usePings(useTimeouts),
+      m_lastPingTime(std::chrono::steady_clock::now()), m_publisher(nodeHandle),
+      m_serial(commsObj), m_services(nodeHandle) {}
 
 void ArgoDriver::loop(const ros::TimerEvent &event) {
   // Prevent the timer from firing again until we are finished
   m_loopTimer.stop();
 
-  // Read from Arduino
-  const std::string serialInput = m_serial.read();
-  auto commandType = CommsParser::parseIncomingBuffer(serialInput);
-  parseCommand(commandType, serialInput);
+  bool enterNextLoop = true;
 
-  // Get our current target speed and send an update if required
-  auto currentSpeedTarget = m_services.getTargetSpeed();
-  if (!(currentSpeedTarget == m_previousSpeedData)) {
-    m_previousSpeedData = currentSpeedTarget;
-    m_serial.write(CommsParser::getSpeedCommand(currentSpeedTarget));
-  }
+  readFromArduino();
+
+  updateTargetSpeed();
+
+  enterNextLoop &= exchangePing();
 
   // Start any pending timers if there are any
   m_services.startTimers();
 
-  m_loopTimer.start();
+  if (ros::ok() && enterNextLoop) {
+    m_loopTimer.start();
+  } else {
+    ros::shutdown();
+  }
 }
 
 void ArgoDriver::setup() {
@@ -60,7 +70,27 @@ void ArgoDriver::setup() {
                                    &ArgoDriver::loop, this, isOneShot);
 }
 
-// Private methods:
+// ------ Private methods --------:
+
+bool ArgoDriver::exchangePing() {
+  if (!m_usePings) {
+    // For unit testing where we don't want to timeout
+    return true;
+  }
+
+  // Send our ping command
+  m_serial.write(CommsParser::getPingCommand());
+
+  // Check if we have exceeded the maximum ping time yet
+  auto duration = std::chrono::steady_clock::now() - m_lastPingTime;
+  if (duration > TIMEOUT_DURATION) {
+    ROS_FATAL("Arduino has not responded in timeout. Entering deadman mode.");
+    m_serial.write(CommsParser::getDeadmanCommand());
+    return false;
+  }
+  return true;
+}
+
 void ArgoDriver::parseCommand(CommandType type, const std::string &s) {
   switch (type) {
   case CommandType::None:
@@ -75,5 +105,24 @@ void ArgoDriver::parseCommand(CommandType type, const std::string &s) {
     m_publisher.publishCurrentSpeed(speedData);
     break;
   }
+  case CommandType::Ping: {
+    m_lastPingTime = std::chrono::steady_clock::now();
+  }
+  }
+}
+
+void ArgoDriver::readFromArduino() {
+  // Read from Arduino
+  const std::string serialInput = m_serial.read();
+  auto commandType = CommsParser::parseIncomingBuffer(serialInput);
+  parseCommand(commandType, serialInput);
+}
+
+void ArgoDriver::updateTargetSpeed() {
+  // Get our current target speed and send an update if required
+  auto currentSpeedTarget = m_services.getTargetSpeed();
+  if (!(currentSpeedTarget == m_previousSpeedData)) {
+    m_previousSpeedData = currentSpeedTarget;
+    m_serial.write(CommsParser::getSpeedCommand(currentSpeedTarget));
   }
 }

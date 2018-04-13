@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-enum class CommandType { None, Encoder, Speed };
+enum class CommandType { None, Encoder, Speed, Ping };
 
 struct EncoderData {
   EncoderData() : isValid(false), leftWheel(0), rightWheel(0) {}
@@ -33,6 +33,7 @@ struct SpeedData {
 
 class CommsParser {
 public:
+  static std::string getDeadmanCommand();
   static std::string getSpeedCommand(const SpeedData &data);
   static std::string getPingCommand();
 
