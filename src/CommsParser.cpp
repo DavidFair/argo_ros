@@ -49,6 +49,7 @@ CommandType CommsParser::parseIncomingBuffer(const std::string &received) {
   }
 
   const std::string trimmedString = trimLeading(received);
+
   if (trimmedString[0] != '!') {
     // Not a command string so print and continue
     const std::string out{"Arduino sent:\n" + received};
