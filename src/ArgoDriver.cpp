@@ -108,16 +108,28 @@ void ArgoDriver::parseCommand(CommandType type, const std::string &s) {
     m_publisher.publishEncoderCount(encoderData);
     break;
   }
-  case CommandType::Speed: {
-    auto speedData = CommsParser::parseSpeedCommand(s);
-    m_publisher.publishCurrentSpeed(speedData);
+  case CommandType::Fatal: {
+    const std::string out{"Got fatal warning from Arduino:\n" + s};
+    ROS_FATAL(out.c_str());
+    ros::shutdown();
     break;
   }
   case CommandType::Ping: {
     ROS_DEBUG("Received ping");
     m_lastIncomingPingTime = std::chrono::steady_clock::now();
+    break;
   }
+  case CommandType::Speed: {
+    auto speedData = CommsParser::parseSpeedCommand(s);
+    m_publisher.publishCurrentSpeed(speedData);
+    break;
   }
+  case CommandType::Warning: {
+    const std::string out{"Got warning from Arduino:\n" + s};
+    ROS_WARN(out.c_str());
+    break;
+  }
+  } // End of switch
 }
 
 void ArgoDriver::readFromArduino() {

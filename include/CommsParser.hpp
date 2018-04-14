@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-enum class CommandType { None, Encoder, Speed, Ping };
+enum class CommandType { None, Encoder, Fatal, Ping, Speed, Warning };
 
 struct EncoderData {
   EncoderData() : isValid(false), leftWheel(0), rightWheel(0) {}
