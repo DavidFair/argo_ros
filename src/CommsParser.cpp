@@ -7,6 +7,12 @@
 
 namespace {
 
+const std::string ENC_PREFIX = "!e";
+const std::string FATAL_PREFIX = "!f";
+const std::string SPEED_PREFIX = "!s";
+const std::string PING_PREFIX = "!p";
+const std::string WARN_PREFIX = "!w";
+
 // Adapted from https://stackoverflow.com/a/44973498
 // ------------------
 std::string trimLeading(const std::string &cs) {
@@ -63,12 +69,6 @@ CommandType CommsParser::parseIncomingBuffer(const std::string &received) {
 // Private methods
 
 CommandType CommsParser::determineCommandType(const std::string &input) {
-  const std::string ENC_PREFIX = "!e";
-  const std::string FATAL_PREFIX = "!f";
-  const std::string SPEED_PREFIX = "!s";
-  const std::string PING_PREFIX = "!p";
-  const std::string WARN_PREFIX = "!w";
-
   if (input.find(ENC_PREFIX) != std::string::npos) {
     return CommandType::Encoder;
   } else if (input.find(FATAL_PREFIX) != std::string::npos) {
@@ -92,7 +92,7 @@ EncoderData CommsParser::parseEncoderCommand(const std::string &input) {
   // !e L_ENC:XXXX R_ENC:XXXX
   const size_t expectedParts = 5;
   if (seperateWords.size() != expectedParts) {
-    rosWarnWrapper("Encoder output did not split correclty. Input was:\n" +
+    rosWarnWrapper("Encoder data input did not split correclty. Input was:\n" +
                    input);
     return {};
   }
@@ -121,8 +121,7 @@ SpeedData CommsParser::parseSpeedCommand(const std::string &input) {
   // !s L_SPEED:XXXX R_SPEED:XXXX
   const size_t expectedParts = 5;
   if (seperateWords.size() != expectedParts) {
-    rosWarnWrapper("Encoder output did not split correclty. Input was:\n" +
-                   input);
+    rosWarnWrapper("Speed input did not split correclty. Input was:\n" + input);
     return {};
   }
 
