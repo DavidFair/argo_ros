@@ -64,15 +64,21 @@ CommandType CommsParser::parseIncomingBuffer(const std::string &received) {
 
 CommandType CommsParser::determineCommandType(const std::string &input) {
   const std::string ENC_PREFIX = "!e";
-  const std::string PING_PREFIX = "!p";
+  const std::string FATAL_PREFIX = "!f";
   const std::string SPEED_PREFIX = "!s";
+  const std::string PING_PREFIX = "!p";
+  const std::string WARN_PREFIX = "!w";
 
   if (input.find(ENC_PREFIX) != std::string::npos) {
     return CommandType::Encoder;
-  } else if (input.find(SPEED_PREFIX) != std::string::npos) {
-    return CommandType::Speed;
+  } else if (input.find(FATAL_PREFIX) != std::string::npos) {
+    return CommandType::Fatal;
   } else if (input.find(PING_PREFIX) != std::string::npos) {
     return CommandType::Ping;
+  } else if (input.find(SPEED_PREFIX) != std::string::npos) {
+    return CommandType::Speed;
+  } else if (input.find(WARN_PREFIX) != std::string::npos) {
+    return CommandType::Warning;
   }
 
   rosWarnWrapper("The following command is unknown:\n" + input);
