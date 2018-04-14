@@ -19,7 +19,7 @@ using ::testing::_;
 namespace {
 using namespace std::chrono_literals;
 const std::string HANDLE_PATH{"argo_driver_test"};
-const auto TIMEOUT = 250ms + 1ms;
+const auto TIMEOUT = 500ms + 1ms;
 
 const bool disablePings = false;
 class ArgoDriverFixture : public ::testing::Test {
@@ -48,7 +48,7 @@ TEST_F(ArgoDriverFixture, setupOpensSerial) {
 }
 
 TEST_F(ArgoDriverFixture, loopCallsReadOnce) {
-  const std::string emptyString;
+  const std::vector<std::string> emptyString;
   EXPECT_CALL(mockComms, read()).WillOnce(Return(emptyString));
 
   ros::TimerEvent fakeEvent;
@@ -76,7 +76,8 @@ TEST_F(ArgoDriverFixture, newSpeedIsWrittenToSerial) {
   rosLoopRunner.join();
 
   const std::string expectedString{"!T L_SPEED:1000 R_SPEED:2000\n"};
-  EXPECT_CALL(mockComms, write(expectedString)).Times(1);
+  const std::vector<std::string> param{expectedString};
+  EXPECT_CALL(mockComms, write(param)).Times(1);
 
   testInstance.loop(ros::TimerEvent{});
 }
@@ -89,7 +90,8 @@ TEST(ArgoDriverTimeout, pingIsSent) {
                           usePingTimeout);
 
   // Expect a ping out only without triggering deadman
-  EXPECT_CALL(mockComms, write("!P\n")).Times(1);
+  std::vector<std::string> expectedPing{"!P\n"};
+  EXPECT_CALL(mockComms, write(expectedPing)).Times(1);
   testInstance.loop(ros::TimerEvent{});
 }
 
@@ -100,10 +102,9 @@ TEST(ArgoDriverTimeout, pingTimeout) {
   ArgoDriver testInstance(static_cast<SerialInterface &>(mockComms), handle,
                           usePingTimeout);
 
-  // Expect a ping out first
-  EXPECT_CALL(mockComms, write("!P\n")).Times(1).RetiresOnSaturation();
-
-  EXPECT_CALL(mockComms, write("!D\n")).Times(1);
+  // We should only get a deadman command when this triggers
+  std::vector<std::string> expectedDeadman{"!D\n"};
+  EXPECT_CALL(mockComms, write(expectedDeadman)).Times(1);
   std::this_thread::sleep_for(TIMEOUT);
   testInstance.loop(ros::TimerEvent{});
 }

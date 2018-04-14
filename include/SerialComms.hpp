@@ -2,7 +2,7 @@
 #define SERIAL_COMMS_HPP_
 
 #include <string>
-#include <termios.h>
+#include <vector>
 
 #include "SerialInterface.hpp"
 
@@ -13,12 +13,15 @@ public:
 
   void openPort(const std::string &portAddress, const int baudRate) override;
 
-  std::string read() override;
-  void write(const std::string &s) override;
+  std::vector<std::string> read() override;
+  bool write(const std::vector<std::string> &s) override;
 
 private:
+  void readToInternalBuffer();
   void isSerialValid() const;
   void setSerialPortSettings(int fileDescriptor, int baudRate);
+
+  std::string m_pendingReadBuffer{};
 
   int fileDescriptor{-1};
   bool isValidPort{false};

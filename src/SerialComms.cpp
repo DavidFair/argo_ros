@@ -7,8 +7,10 @@
 #include <sys/types.h>
 
 #include <cstring>
+#include <sstream>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 #include "ros/ros.h"
 
@@ -31,6 +33,18 @@ void getArduinoSerialFlags(termios &serialControl) {
 
 std::string getErrorMsg() { return std::string{strerror(errno)}; }
 
+std::vector<std::string> splitByToken(const std::string &s, const char delim) {
+  std::vector<std::string> foundLines;
+  std::string foundLine;
+  std::stringstream inputStream(s);
+
+  while (std::getline(inputStream, foundLine, delim)) {
+    foundLines.push_back(foundLine);
+  }
+
+  return foundLines;
+}
+
 void throwLinuxError(const std::string &cause) {
   const std::string e{cause + "\nError was: ' " + getErrorMsg() + "'"};
   ROS_ERROR(e.c_str());
@@ -51,37 +65,48 @@ SerialComms::~SerialComms() {
   }
 }
 
-std::string SerialComms::read() {
-  isSerialValid();
+std::vector<std::string> SerialComms::read() {
+  readToInternalBuffer();
+  const std::string currentBuffer = std::move(m_pendingReadBuffer);
+  m_pendingReadBuffer.clear();
 
-  const int BUF_SIZE = 256;
-  char buf[BUF_SIZE];
-  memset(buf, 0, BUF_SIZE);
-  int count = ::read(fileDescriptor, buf, BUF_SIZE);
+  // Split if there are multiple commands
+  const char EOLToken = '\n';
+  const auto foundStrings = splitByToken(currentBuffer, EOLToken);
 
-  if (count >= 0) {
-    return std::string(buf);
-  }
-
-  if (errno != EAGAIN) {
-    // Something went wrong
-    throwLinuxError("Failed to read from serial");
-  }
-
-  // There was no data available in the buffer
-  return std::string{};
+  return foundStrings;
 }
 
-void SerialComms::write(const std::string &s) {
+bool SerialComms::write(const std::vector<std::string> &strings) {
   isSerialValid();
-  int count = ::write(fileDescriptor, s.c_str(), s.size());
 
-  if (count < 0) {
-    throwLinuxError("Failed to write to serial device");
-  } else {
-    const std::string out{"Wrote to Arduino:\n" + s};
+  bool writeWasGood = true;
+
+  for (const auto &i : strings) {
+    // Good write return
+    const std::string out{"Writing to Arduino:\n" + i};
     ROS_DEBUG(out.c_str());
+
+    // We have to always attempt to read before continuing in case the Arduino
+    // is sending to us first filling the buffer and deadlocking
+    readToInternalBuffer();
+
+    int count = ::write(fileDescriptor, i.c_str(), i.size());
+
+    if (count >= 0) {
+      continue;
+    }
+
+    if (errno == EAGAIN) {
+      ROS_WARN("Could not write the serial port. The output buffer is full.");
+      writeWasGood = false;
+      break;
+    } else {
+      throwLinuxError("Failed to write to serial device");
+    }
   }
+
+  return writeWasGood;
 }
 
 void SerialComms::openPort(const std::string &portAddress, const int baudRate) {
@@ -91,8 +116,9 @@ void SerialComms::openPort(const std::string &portAddress, const int baudRate) {
 
   if (fileDescriptor < 0) {
     // Failed to open port
-    const std::string e{"Could not open port at: " + portAddress +
-                        "\nIs the Arduino connected and on the correct TTY?"};
+    const std::string e{
+        "Could not open port at: " + portAddress +
+        "\nIs the Arduino connected, on the correct TTY and unused?"};
     ROS_ERROR(e.c_str());
     throw std::runtime_error(e);
   }
@@ -135,6 +161,24 @@ void SerialComms::setSerialPortSettings(int fileDescriptor, int baudRate) {
 }
 
 // Private methods:
+void SerialComms::readToInternalBuffer() {
+  isSerialValid();
+
+  const int BUF_SIZE = 256;
+  char buf[BUF_SIZE];
+  memset(buf, 0, BUF_SIZE);
+  int count = ::read(fileDescriptor, buf, BUF_SIZE);
+
+  if (count >= 0) {
+    m_pendingReadBuffer.append((buf));
+  }
+
+  if (errno != EAGAIN) {
+    // Something went wrong
+    throwLinuxError("Failed to read from serial");
+  }
+}
+
 void SerialComms::isSerialValid() const {
   if (!isValidPort) {
     const std::string e{

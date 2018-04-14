@@ -2,6 +2,8 @@
 #define ARGO_DRIVER_HPP_
 
 #include <chrono>
+#include <string>
+#include <vector>
 
 #include "ros/ros.h"
 
@@ -31,9 +33,12 @@ private:
   // Internal variables
   const int m_maxVelocity;
   SpeedData m_previousSpeedData;
+  std::vector<std::string> m_outputBuffer;
 
+  // Ping related variables
   bool m_usePings;
-  std::chrono::time_point<std::chrono::steady_clock> m_lastPingTime;
+  std::chrono::time_point<std::chrono::steady_clock> m_lastIncomingPingTime;
+  std::chrono::time_point<std::chrono::steady_clock> m_lastOutgoingPingTime;
 
   // Helper classes
   Publisher m_publisher;
