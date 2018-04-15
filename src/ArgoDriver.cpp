@@ -17,6 +17,7 @@ const std::string DEFAULT_TTY = "/dev/ttyACM0";
 const double DEFAULT_MAX_VEL = 3; // Meters per second
 
 const double LOOP_TIMER = 100;       // Time in ms per loop
+const auto REISSUE_COMMAND = 500ms;  // Time to reissue any commands
 const auto TIMEOUT_DURATION = 500ms; // Ping timeout
 
 } // Anonymous namespace
@@ -35,7 +36,9 @@ ArgoDriver::ArgoDriver(SerialInterface &commsObj, ros::NodeHandle &nodeHandle,
     : m_node(nodeHandle),
       m_maxVelocity(nodeHandle.param<double>("maxVelocity", DEFAULT_MAX_VEL) *
                     METERS_TO_MILLIS),
-      m_previousSpeedData(), m_usePings(useTimeouts),
+      m_previousSpeedData(0, 0),
+      m_lastSpeedCommandTime(std::chrono::steady_clock::now()),
+      m_usePings(useTimeouts),
       m_lastIncomingPingTime(std::chrono::steady_clock::now()),
       m_publisher(nodeHandle), m_serial(commsObj), m_services(nodeHandle) {}
 
@@ -125,6 +128,52 @@ bool ArgoDriver::exchangePing() {
   return true;
 }
 
+/**
+ * Limits the passed speed data to the maximum velocity
+ * as set at construction time in the driver. If the speed
+ * was constrained a warning is printed indicating the
+ * requested speed and the new set speed. I
+ *
+ * @param values The speed to constrain to a maximum
+ * @return True if speed was constrained
+ */
+bool ArgoDriver::limitToMaxVelocity(SpeedData &values) const {
+  // Speed has updated at this point
+  bool speedWasConstrained = false;
+
+  // Constrain to maximum
+  const bool leftSpeedIsNeg = values.leftWheel < 0;
+  const bool rightSpeedIsNeg = values.rightWheel < 0;
+
+  if (abs(values.leftWheel) > m_maxVelocity) {
+    const auto leftPreviousSpeed = values.leftWheel;
+    values.leftWheel = leftSpeedIsNeg ? -m_maxVelocity : m_maxVelocity;
+
+    const std::string out{
+        "Left wheel speed absolute target was: " +
+        std::to_string(leftPreviousSpeed) +
+        "\nRestricting to max speed: " + std::to_string(values.leftWheel)};
+
+    ROS_WARN(out.c_str());
+    speedWasConstrained = true;
+  }
+
+  if (abs(values.rightWheel) > m_maxVelocity) {
+    const auto rightPreviousSpeed = values.rightWheel;
+    values.rightWheel = rightSpeedIsNeg ? -m_maxVelocity : m_maxVelocity;
+
+    const std::string out{
+        "Right wheel speed absolute target was: " +
+        std::to_string(rightPreviousSpeed) +
+        "\nRestricting to max speed: " + std::to_string(values.rightWheel)};
+
+    ROS_WARN(out.c_str());
+    speedWasConstrained = true;
+  }
+
+  return speedWasConstrained;
+}
+
 /*
  * Takes the current command string and the parsed type of command and
  * takes appropriate action depending on the command type.
@@ -190,37 +239,28 @@ void ArgoDriver::readFromArduino() {
 void ArgoDriver::updateTargetSpeed() {
   // Get our current target speed and send an update if required
   auto currentSpeedTarget = m_services.getTargetSpeed();
+
   if (currentSpeedTarget == m_previousSpeedData) {
+    const auto timeSinceLastCommand =
+        std::chrono::steady_clock::now() - m_lastSpeedCommandTime;
+
+    if (timeSinceLastCommand > REISSUE_COMMAND) {
+      // Reissue the command
+      m_outputBuffer.push_back(
+          CommsParser::getSpeedCommand(currentSpeedTarget));
+      m_publisher.publishTargetSpeed(m_previousSpeedData);
+      m_lastSpeedCommandTime = std::chrono::steady_clock::now();
+    }
     return;
   }
 
-  bool speedWasConstrained = false;
-
-  // Constrain to maximum
-  if (currentSpeedTarget.leftWheel > m_maxVelocity) {
-    const std::string out{
-        "Left wheel speed target was: " +
-        std::to_string(currentSpeedTarget.leftWheel) +
-        "\nRestricting to max speed: " + std::to_string(m_maxVelocity)};
-    ROS_WARN(out.c_str());
-    currentSpeedTarget.leftWheel = m_maxVelocity;
-    speedWasConstrained = true;
-  }
-
-  if (currentSpeedTarget.rightWheel > m_maxVelocity) {
-    const std::string out{
-        "Right wheel speed target was: " +
-        std::to_string(currentSpeedTarget.rightWheel) +
-        "\nRestricting to max speed: " + std::to_string(m_maxVelocity)};
-    ROS_WARN(out.c_str());
-    currentSpeedTarget.rightWheel = m_maxVelocity;
-    speedWasConstrained = true;
-  }
-
-  if (speedWasConstrained) {
+  if (limitToMaxVelocity(currentSpeedTarget)) {
+    // Update with our constrained speed
     m_services.setTargetSpeed(currentSpeedTarget);
   }
 
   m_previousSpeedData = currentSpeedTarget;
+  m_publisher.publishTargetSpeed(currentSpeedTarget);
   m_outputBuffer.push_back(CommsParser::getSpeedCommand(currentSpeedTarget));
+  m_lastSpeedCommandTime = std::chrono::steady_clock::now();
 }

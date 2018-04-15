@@ -32,6 +32,9 @@ private:
   /// not timed out
   bool exchangePing();
 
+  /// Limits the current given speed data to the maximum velocity
+  bool limitToMaxVelocity(SpeedData &values) const;
+
   /// Parses the given command of type and performs appropriate actions
   void parseCommand(CommandType type, const std::string &s);
 
@@ -53,6 +56,8 @@ private:
   const int m_maxVelocity; // TODO
   /// The current speed the vehicle should be traveling at
   SpeedData m_previousSpeedData;
+  /// The last time the speed command was issued
+  std::chrono::time_point<std::chrono::steady_clock> m_lastSpeedCommandTime;
   /// The pending buffer to write to the serial port
   std::vector<std::string> m_outputBuffer;
 
