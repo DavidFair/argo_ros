@@ -16,9 +16,22 @@ const std::string STOP_VEHICLE_SERV_NAME{"stop_vehicle"};
 // The length between the wheels on the argo
 const double LENGTH_BETWEEN_WHEELS{1.473}; // Meters
 
+/// Converts degrees to radians
 double convertToRadians(double degrees) { return degrees * (M_PI / 180); }
+
 const int METERS_TO_MILLIS{1000};
 
+/*
+ * Calculates the change in velocity for each wheel (therefore the
+ * overall delta between the wheels is 2 * the returned value) to
+ * achieve the change in theta within the given time.
+ *
+ * @param targetTime The time to complete the turn
+ * @param deltaTheta The change in angle to complete in radians
+ *
+ * @return The velocity difference in millimeters / second to apply to
+ * each wheel (both negative and positively depending on rotation direction)
+ */
 int calcVelocityDelta(double targetTime, double deltaTheta) {
   // First we need to calculate the time to complete this turn in
   // this is distance to way-point / velocity
@@ -32,6 +45,15 @@ int calcVelocityDelta(double targetTime, double deltaTheta) {
   return velocityDifference * METERS_TO_MILLIS;
 }
 
+/*
+ * Calculates the time required to complete a turn given
+ * a turning rate and a target change in angle
+ *
+ * @param turnRate The current turning rate in radians / second
+ * @param deltaTheta The current angle to turn in radians
+ *
+ * @return The time required to complete the turn in seconds
+ */
 double calcTimeForTurn(double turnRate, double deltaTheta) {
   double angularMomentum = turnRate / LENGTH_BETWEEN_WHEELS;
   return deltaTheta / angularMomentum;
@@ -39,6 +61,12 @@ double calcTimeForTurn(double turnRate, double deltaTheta) {
 
 } // End of anonymous namespace
 
+/*
+ * Constructs the Services object and sets up ROS services
+ * that this object provides from the passed node.
+ *
+ * @param node The ROS node to register the services with
+ */
 Services::Services(ros::NodeHandle &node)
     : m_node(node), m_turnTimer(), m_targetOdomServ(), m_stopVehicleServ(),
       m_wheelSpeedServ() {
@@ -52,6 +80,7 @@ Services::Services(ros::NodeHandle &node)
                                             &Services::stopVehicle, this);
 }
 
+/// Starts any pending timers. (See createStraightLineTimer())
 void Services::startTimers() {
   if (m_timerPending) {
     m_turnTimer.start();
@@ -60,6 +89,15 @@ void Services::startTimers() {
 
 // ----- Private methods ----
 
+/*
+ * Creates a straight line timer. This is used to get the
+ * vehicle to continue straight after turning to a given bearing
+ * at the indicated speed.
+ *
+ * @param time The time before ending the turn to a straight path
+ * @param targetSpeed The speed in millimeters / second to travel at after
+ * the time has elapsed
+ */
 void Services::createStraightLineTimer(const ros::Duration &time,
                                        const int targetSpeed) {
   // Setup a turn timer to fire after the speed has been send when the turn has
@@ -72,11 +110,31 @@ void Services::createStraightLineTimer(const ros::Duration &time,
   m_timerPending = true;
 }
 
+/*
+ * Sets a new target speed to be held internally to the Services object
+ *
+ * @param leftWheel The speed of the left wheel in millimeters / second
+ * @param rightWheel The speed of the right wheel in millimeters / second
+ */
 void Services::setNewSpeed(const int leftWheel, const int rightWheel) {
   SpeedData newTargetSpeed{leftWheel, rightWheel};
   m_currentTargetSpeed = newTargetSpeed;
 }
 
+/*
+ * Sets a new target turning rate and future straight line speed from
+ * the ROS request. The request contains a target velocity, change in heading
+ * (radians or degrees) and a distance to complete this in.
+ *
+ * This function will also do a turn on the spot if the indicated speed or
+ * distance is below a predefined threshold. In this case the vehicle will stop
+ * after completing the turn
+ *
+ * @param req The request containing the target odometry
+ * @param response (Unused)
+ *
+ * @return (Unused)
+ */
 bool Services::setTargetOdom(argo_driver::SetTargetOdom::Request &req,
                              argo_driver::SetTargetOdom::Response &response) {
   // Constants for turning on the spot
@@ -156,6 +214,15 @@ bool Services::setTargetOdom(argo_driver::SetTargetOdom::Request &req,
   return true;
 }
 
+/**
+ * Sets a new target wheel speed for both the left and right wheels
+ *
+ * @param req The ROS request containing the speeds for the left and right
+ * wheels
+ * @param response (Unused)
+ *
+ * @return (Unused)
+ */
 bool Services::setWheelSpeed(argo_driver::SetWheelSpeeds::Request &req,
                              argo_driver::SetWheelSpeeds::Response &response) {
   setNewSpeed(req.leftWheelTarget * METERS_TO_MILLIS,
@@ -163,6 +230,13 @@ bool Services::setWheelSpeed(argo_driver::SetWheelSpeeds::Request &req,
   return true;
 }
 
+/**
+ * Stops the vehicle when called
+ *
+ * @param req (Unused)
+ * @param response (Unused)
+ * @return (Unused)
+ */
 bool Services::stopVehicle(argo_driver::Stop::Request &req,
                            argo_driver::Stop::Response &response) {
   SpeedData newTargetSpeed{0, 0};

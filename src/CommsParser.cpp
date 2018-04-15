@@ -15,6 +15,14 @@ const std::string WARN_PREFIX = "!w";
 
 // Adapted from https://stackoverflow.com/a/44973498
 // ------------------
+
+/**
+ * Trims leading whitespace from a given string and
+ * returns a trimmed copy
+ *
+ * @param cs The string the trim
+ * @return The copied string with leading whitespace trimmed
+ */
 std::string trimLeading(const std::string &cs) {
   // Force a copy if input was constant
   std::string s = cs;
@@ -24,20 +32,42 @@ std::string trimLeading(const std::string &cs) {
 }
 // ------------------
 
+/*
+ * Wraps a ROS warning call to allow string literals to be
+ * used within the codebase without having the first create
+ * a string. The passed string is printed directly as a ROS
+ * warning
+ *
+ * @param s The string to print as a ROS warning
+ */
 void rosWarnWrapper(const std::string &s) { ROS_WARN(s.c_str()); }
 
 } // End of anonymous namespace
 
+/*
+ * Returns a string containing a deadman command
+ * @return A string containing a deadman command
+ */
 std::string CommsParser::getDeadmanCommand() {
   // !D is the command to enter deadman mode
   return {"!D\n"};
 }
 
+/*
+ * Returns a string containing a ping command
+ * @return A string containing a ping command
+ */
 std::string CommsParser::getPingCommand() {
   // !P is the ping command
   return {"!P\n"};
 }
 
+/* Returns a string containing the current speed target
+ * which is constructed from the data passed in. (See SpeedData)
+ *
+ * @param data A SpeedData object with the target speed
+ * @return A formatted string with the targeted speed
+ */
 std::string CommsParser::getSpeedCommand(const SpeedData &data) {
   // Expected format
   // !T L_SPEED:xxxx R_SPEED:xxxx
@@ -48,6 +78,15 @@ std::string CommsParser::getSpeedCommand(const SpeedData &data) {
   return command.str();
 }
 
+/*
+ * Parses the a single command, determines if it is a command or not.
+ * If not a command prints the current string to ROS INFO then returns
+ * a command type none. Otherwise determines the strings current command
+ * type which is returned.
+ *
+ * @param received The string to parse and determine the type of
+ * @return None if the string was not a command, otherwise the CommandType
+ */
 CommandType CommsParser::parseIncomingBuffer(const std::string &received) {
   if (received.size() == 0) {
     // Nothing was received this loop
@@ -68,6 +107,15 @@ CommandType CommsParser::parseIncomingBuffer(const std::string &received) {
 
 // Private methods
 
+/*
+ * Determines the current strings command type. This function
+ * expects that any strings which do not start with a command
+ * prefix are not passed. Therefore if an unknown command is known
+ * a warning is emitted to ROS with the received string.
+ *
+ * @param input The string to determine the command type of
+ * @return The command type of the given string
+ */
 CommandType CommsParser::determineCommandType(const std::string &input) {
   if (input.find(ENC_PREFIX) != std::string::npos) {
     return CommandType::Encoder;
@@ -85,6 +133,17 @@ CommandType CommsParser::determineCommandType(const std::string &input) {
   return CommandType::None;
 }
 
+/*
+ * Parses encoder data received from the vehicle. If the input does
+ * not match an expected format emits a warning and returns an
+ * object whose attributes are marked invalid (See EncoderData)
+ * Otherwise takes the parsed elements and returns their data
+ * in a new EncoderData object
+ *
+ * @param input The string describing encoder data to parse
+ * @return An invalid EncoderData object if parsing failed, or a
+ * EncoderDataobject with the current encoder positions
+ */
 EncoderData CommsParser::parseEncoderCommand(const std::string &input) {
   auto seperateWords = splitCommands(input);
 
@@ -114,6 +173,17 @@ EncoderData CommsParser::parseEncoderCommand(const std::string &input) {
   return {leftEncoderCount, rightEncoderCount};
 }
 
+/*
+ * Parses speed data received from the vehicle. If the input does
+ * not match an expected format: emits a warning and returns an
+ * object whose attributes are marked invalid (See SpeedData)
+ * Otherwise takes the parsed elements and returns their data
+ * in a new SpeedData object
+ *
+ * @param input A string describing speed data to parse
+ * @return An invalid SpeedData object if parsing failed, or a
+ * SpeedData object with the current encoder positions
+ */
 SpeedData CommsParser::parseSpeedCommand(const std::string &input) {
   auto seperateWords = splitCommands(input);
 
@@ -144,6 +214,14 @@ SpeedData CommsParser::parseSpeedCommand(const std::string &input) {
 
 // Adapted from https://stackoverflow.com/a/7621814
 // ----------------
+/**
+ * Splits multiple commands given in an input strings by the expected
+ * delimeter '\n'. These are returned as a vector of strings representing
+ * all found commands.
+ *
+ * @param s The string to split into multiple command strings
+ * @return A vector of strings representing all found command strings
+ */
 std::vector<std::string> CommsParser::splitCommands(const std::string &s) {
   std::vector<std::string> foundWords;
   std::size_t prev = 0, pos;

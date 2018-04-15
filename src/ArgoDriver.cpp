@@ -23,6 +23,15 @@ const auto TIMEOUT_DURATION = 500ms; // Ping timeout
 
 } // Anonymous namespace
 
+/**
+ * Creates a new instance of the ROS driver
+ *
+ * @param SerialInterface Reference to a concrete implementation of the
+ * SerialInterface for the node to communicate over
+ * @param nodeHandle Reference to a setup ROS node handle
+ * @param timeoutEnabled (Default True). If true enables sending pings
+ * and entering deadman mode. Primarily used in unit tests to disable pings.
+ */
 ArgoDriver::ArgoDriver(SerialInterface &commsObj, ros::NodeHandle &nodeHandle,
                        bool useTimeouts)
     : m_node(nodeHandle),
@@ -30,9 +39,15 @@ ArgoDriver::ArgoDriver(SerialInterface &commsObj, ros::NodeHandle &nodeHandle,
                     MILLIS_PER_METER),
       m_previousSpeedData(), m_usePings(useTimeouts),
       m_lastIncomingPingTime(std::chrono::steady_clock::now()),
-      m_lastOutgoingPingTime(std::chrono::steady_clock::now()),
       m_publisher(nodeHandle), m_serial(commsObj), m_services(nodeHandle) {}
 
+/**
+ * Runs the main Argo node loop providing communications to and from
+ * ROS to the vehicle. It will continue to run until either a shutdown
+ * signal is sent by ROS or an exit condition is encountered
+ *
+ * @param (Unused)
+ */
 void ArgoDriver::loop(const ros::TimerEvent &event) {
   // Prevent the timer from firing again until we are finished
   m_loopTimer.stop();
@@ -61,6 +76,10 @@ void ArgoDriver::loop(const ros::TimerEvent &event) {
   }
 }
 
+/*
+ * Sets up the main loop to run, this needs to be called after the
+ * object is constructed to start the driver.
+ */
 void ArgoDriver::setup() {
   // Get the target tty port
   int baudRate = 0;
@@ -79,6 +98,15 @@ void ArgoDriver::setup() {
 
 // ------ Private methods --------:
 
+/*
+ * If the driver has timeoutEnabled (see constructor) : Sends a ping to
+ * the vehicle and checks a response has been received in time. If
+ * timeoutEnabled was false always returns true
+ *
+ * @return True if a ping has been received before timeout or if
+ * timeoutEnabled is set to false. False if a ping has not been received in
+ * time.
+ */
 bool ArgoDriver::exchangePing() {
   if (!m_usePings) {
     // For unit testing where we don't want to timeout
@@ -99,6 +127,13 @@ bool ArgoDriver::exchangePing() {
   return true;
 }
 
+/*
+ * Takes the current command string and the parsed type of command and
+ * takes appropriate action depending on the command type.
+ *
+ * @param type The type of command s refers to. See CommandType.
+ * @param s The string representation of the command
+ */
 void ArgoDriver::parseCommand(CommandType type, const std::string &s) {
   switch (type) {
   case CommandType::None:
@@ -132,6 +167,11 @@ void ArgoDriver::parseCommand(CommandType type, const std::string &s) {
   } // End of switch
 }
 
+/**
+ * Reads from the Arduino and loops over all messages
+ * to determine their type (see CommandType) and then
+ * dispatch them onto a handler
+ */
 void ArgoDriver::readFromArduino() {
   // Read from Arduino
   const auto serialInput = m_serial.read();
@@ -141,6 +181,10 @@ void ArgoDriver::readFromArduino() {
   }
 }
 
+/*
+ * Updates the target speed of the vehicle if the target has changed
+ * by appending a command to the output buffer of this loop
+ */
 void ArgoDriver::updateTargetSpeed() {
   // Get our current target speed and send an update if required
   auto currentSpeedTarget = m_services.getTargetSpeed();

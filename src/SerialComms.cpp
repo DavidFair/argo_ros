@@ -17,6 +17,14 @@
 #include "SerialComms.hpp"
 
 namespace {
+/*
+ * Sets serial flags for on a termios object to communicate with
+ * the Arduino. This includes turning echo off, additional EOL
+ * processing off and setting rate control options as taken from
+ * Arduino documentation.
+ *
+ * @param serialControl The read termios structure which is modified in place
+ */
 void getArduinoSerialFlags(termios &serialControl) {
   // Options adapted from https://playground.arduino.cc/Interfacing/LinuxTTY
   serialControl.c_cflag |= CRTSCTS;
@@ -31,8 +39,22 @@ void getArduinoSerialFlags(termios &serialControl) {
   serialControl.c_oflag &= ~ONLCR;
 }
 
+/*
+ * Returns a string representation of the internal error message as
+ * set by c functions - errno.
+ *
+ * @return String error message for the last library error
+ */
 std::string getErrorMsg() { return std::string{strerror(errno)}; }
 
+/*
+ * Splits a given string by a given delimeter into a vector of strings
+ *
+ * @param s The string to split
+ * @param delim The delimeter to split the string with
+ *
+ * @return A vector of all found strings
+ */
 std::vector<std::string> splitByToken(const std::string &s, const char delim) {
   std::vector<std::string> foundLines;
   std::string foundLine;
@@ -45,6 +67,13 @@ std::vector<std::string> splitByToken(const std::string &s, const char delim) {
   return foundLines;
 }
 
+/*
+ * Throws a runtime error and prints a ROS error containing the current
+ * library error text and a given explanation from the passed parameter.
+ *
+ * @param cause The preceeding error text explaining the cause of this error.
+ * @throw std::runtime_error Containing the passed and library error texts
+ */
 void throwLinuxError(const std::string &cause) {
   const std::string e{cause + "\nError was: ' " + getErrorMsg() + "'"};
   ROS_ERROR(e.c_str());
@@ -53,6 +82,11 @@ void throwLinuxError(const std::string &cause) {
 
 } // End of anonymous namespace
 
+/*
+ * Custom destructor which attempts to close the file descriptor
+ * on object destruction. If the resource cannot be close a ROS
+ * error is printed.
+ */
 SerialComms::~SerialComms() {
   if (!isValidPort) {
     return;
@@ -65,6 +99,17 @@ SerialComms::~SerialComms() {
   }
 }
 
+/*
+ * Reads from any pending internal commands from an internal buffer.
+ * These strings are split by their EOL character and returned as a vector
+ * of strings.
+ * Only canonical strings (i.e. complete to EOL) are returned. The
+ * internal buffer is also cleared.
+ *
+ * This is non-blocking.
+ *
+ * @return A vector of complete strings received from the device
+ */
 std::vector<std::string> SerialComms::read() {
   readToInternalBuffer();
   const std::string currentBuffer = std::move(m_pendingReadBuffer);
@@ -77,6 +122,22 @@ std::vector<std::string> SerialComms::read() {
   return foundStrings;
 }
 
+/*
+ * Writes the given vector of strings to the output buffer. It is
+ * expected all strings already have their EOL character written.
+ * If the write fails as the outgoing buffer is full it returns false, if
+ * multiple commands were passed it is unspecified how many were succesfully
+ * sent.
+ * If the write fails for any other reason an exception is thrown with the
+ * reason
+ * If the write succeeds true is returned.
+ *
+ * @param string A vector of strings to write to the device
+ *
+ * @return True if all strings were written, false if the outgoing buffer was
+ * full
+ * @throws std::runtime_error If the write fails for any other reason
+ */
 bool SerialComms::write(const std::vector<std::string> &strings) {
   isSerialValid();
 
@@ -109,6 +170,21 @@ bool SerialComms::write(const std::vector<std::string> &strings) {
   return writeWasGood;
 }
 
+/*
+ * Attempts to open a port at the given address and baud rate.
+ *
+ * If the device cannot be opened an exception is thrown with an
+ * error message describing the reason.
+ *
+ * This function must succeed before read or write can be called on the
+ * object.
+ *
+ * @param portAddress The address of the device to use. For example
+ * /dev/ttyACM0
+ * @param baudRate The baud rate to communicate with
+ *
+ * @throws std::runtime_error If the port cannot be opened with the reason why
+ */
 void SerialComms::openPort(const std::string &portAddress, const int baudRate) {
   fileDescriptor = open(portAddress.c_str(), (O_RDWR | O_NOCTTY | O_NDELAY));
   // Ensure that we are not in blocking mode on the syscall side either
@@ -127,6 +203,22 @@ void SerialComms::openPort(const std::string &portAddress, const int baudRate) {
   isValidPort = true;
 }
 
+/**
+ * Sets port settings on the passed, opened file descriptor. These
+ * settings include non-blocking mode, canonical mode, and various
+ * serial terminal specific settings.
+ * Throws an exception if the terminal attributes cannot be retrieved
+ * or set.
+ *
+ * The baud rate is used in a lookup table so each new rate must be
+ * implemented before it can be used. Current implemented rates are:
+ * - 115200 -
+ *
+ * @param fileDescriptor An opened file descriptor to set properties on
+ * @param baudRate The target baud rate to operate at.
+ *
+ * @throws std::runtime_error If attributes cannot be set or got from the dev
+ */
 void SerialComms::setSerialPortSettings(int fileDescriptor, int baudRate) {
   // -----------------------------------------------
   // Adapted from https://stackoverflow.com/a/6947758
@@ -161,6 +253,17 @@ void SerialComms::setSerialPortSettings(int fileDescriptor, int baudRate) {
 }
 
 // Private methods:
+/**
+ * Reads any incoming command from the OS buffer to an internal buffer
+ * This is primarily used in read() and write() to avoid deadlocks
+ * where the buffer cannot write until its contents are read from
+ * the device.
+ *
+ * This call is non-blocking.
+ *
+ * @throws std::runtime_error If any other error than EAGAIN
+ * (meaning buffer empty) is returned with that error in the exception.
+ */
 void SerialComms::readToInternalBuffer() {
   isSerialValid();
 
@@ -179,6 +282,12 @@ void SerialComms::readToInternalBuffer() {
   }
 }
 
+/**
+ * Checks whether the internal file descriptor has been setup and is valid.
+ * Prints a ROS error and throws an exception if the port is not valid.
+ *
+ * @throws std::runtime_error If the serial port was not setup.
+ */
 void SerialComms::isSerialValid() const {
   if (!isValidPort) {
     const std::string e{
