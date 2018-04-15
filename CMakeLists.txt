@@ -149,6 +149,7 @@ target_link_libraries(${PROJECT_NAME}_node
 catkin_add_gmock(${PROJECT_NAME}-test
   test/ArgoDriverTest.cpp
   test/CommsParserTest.cpp
+  test/PublisherTest.cpp
   test/ServicesTest.cpp)
 
 if(TARGET ${PROJECT_NAME}-test)

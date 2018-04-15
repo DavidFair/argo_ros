@@ -25,6 +25,9 @@ private:
   /// A handle to the right encoder count publisher
   ros::Publisher m_rightEncoderPub;
 
+  /// A handle to publish the current odometry
+  ros::Publisher m_odomPub;
+
   /// A handle to the left speed publisher
   ros::Publisher m_leftSpeedPub;
   /// A handle to the right speed publisher
