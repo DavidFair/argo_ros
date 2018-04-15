@@ -10,10 +10,14 @@ public:
   /// Creates an object which handles publishing topics for the Argo driver
   Publisher(ros::NodeHandle &handle);
 
-  /// Publishes the current encoder count on the vehicle
-  void publishEncoderCount(const EncoderData &data);
   /// Publishes the current vehicle speed
   void publishCurrentSpeed(const SpeedData &data);
+
+  /// Publishes the current vehicle odometry
+  void publishCurrentOdometry(const EncoderData &data);
+
+  /// Publishes the current encoder count on the vehicle
+  void publishEncoderCount(const EncoderData &data);
 
 private:
   /// A handle to the left encoder count publisher

@@ -3,6 +3,8 @@
 #include "ros/ros.h"
 #include "std_msgs/Int16.h"
 
+#include "argo_driver/CurrentOdom.h"
+
 #include "Publisher.hpp"
 
 namespace {
@@ -40,7 +42,7 @@ Publisher::Publisher(ros::NodeHandle &handle)
       handle.advertise<std_msgs::Int16>(R_SPEED_TOPIC_NAME, TOPIC_QUEUE);
 }
 
-/*
+/**
  * Publishes the current vehicle speed to the associated topics
  * from the input data. (See SpeedData).
  *
@@ -61,7 +63,16 @@ void Publisher::publishCurrentSpeed(const SpeedData &data) {
   m_rightSpeedPub.publish(rightMessage);
 }
 
-/*
+/**
+ * Publishes the current odometry, such as distance travelled in/by the:
+ * x, y, leftWheels, rightWheels, currentHeading. Based off the current
+ * encoder data. (See EncoderData)
+ *
+ * @param data The encoder data to calculate the attributes from
+ */
+void Publisher::publishCurrentOdometry(const EncoderData &data) {}
+
+/**
  * Publishes the current encoder counts which are absolute from
  * the input data. (See EncoderData).
  *

@@ -1,0 +1,9 @@
+Header header
+float64 xDistTravelled
+float64 yDistTravelled
+
+float64 leftWheelTravelled
+float64 rightWheelTravelled
+
+int16 headingDegrees
+float64 headingRadians
