@@ -14,5 +14,6 @@ constexpr double g_DIST_PER_ENC_COUNT{g_WHEEL_CIRC /
                                       g_ENC_COUNTS_PER_WHEEL_ROT};
 
 constexpr int METERS_TO_MILLIS{1000};
+const double MILLIS_PER_SEC = 1000;
 
 #endif
