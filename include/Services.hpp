@@ -17,6 +17,11 @@ public:
   /// Gets the most recent target speed. See (SpeedData)
   SpeedData getTargetSpeed() const { return m_currentTargetSpeed; };
 
+  /// Used to override a set target speed
+  void setTargetSpeed(const SpeedData &newTargetSpeed) {
+    m_currentTargetSpeed = newTargetSpeed;
+  }
+
   /// Starts a timer for changing speed when turning if there are any
   void startTimers();
 

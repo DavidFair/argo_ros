@@ -4,6 +4,7 @@
 #include "ros/ros.h"
 
 #include "ArgoDriver.hpp"
+#include "ArgoGlobals.hpp"
 #include "CommsParser.hpp"
 #include "Publisher.hpp"
 #include "SerialInterface.hpp"
@@ -14,9 +15,6 @@ using namespace std::chrono_literals;
 // ROS defaults
 const std::string DEFAULT_TTY = "/dev/ttyACM0";
 const double DEFAULT_MAX_VEL = 3; // Meters per second
-
-const double MILLIS_PER_METER = 1000;
-const double MILLIS_PER_SEC = 1000;
 
 const double LOOP_TIMER = 100;       // Time in ms per loop
 const auto TIMEOUT_DURATION = 500ms; // Ping timeout
@@ -36,7 +34,7 @@ ArgoDriver::ArgoDriver(SerialInterface &commsObj, ros::NodeHandle &nodeHandle,
                        bool useTimeouts)
     : m_node(nodeHandle),
       m_maxVelocity(nodeHandle.param<double>("maxVelocity", DEFAULT_MAX_VEL) *
-                    MILLIS_PER_METER),
+                    METERS_TO_MILLIS),
       m_previousSpeedData(), m_usePings(useTimeouts),
       m_lastIncomingPingTime(std::chrono::steady_clock::now()),
       m_publisher(nodeHandle), m_serial(commsObj), m_services(nodeHandle) {}
@@ -184,13 +182,45 @@ void ArgoDriver::readFromArduino() {
 
 /*
  * Updates the target speed of the vehicle if the target has changed
- * by appending a command to the output buffer of this loop
+ * by appending a command to the output buffer of this loop. If
+ * the requested speed was greater than the maximum velocity it
+ * constrains this speed to the maximum velocity and emits a ROS
+ * warning.
  */
 void ArgoDriver::updateTargetSpeed() {
   // Get our current target speed and send an update if required
   auto currentSpeedTarget = m_services.getTargetSpeed();
-  if (!(currentSpeedTarget == m_previousSpeedData)) {
-    m_previousSpeedData = currentSpeedTarget;
-    m_outputBuffer.push_back(CommsParser::getSpeedCommand(currentSpeedTarget));
+  if (currentSpeedTarget == m_previousSpeedData) {
+    return;
   }
+
+  bool speedWasConstrained = false;
+
+  // Constrain to maximum
+  if (currentSpeedTarget.leftWheel > m_maxVelocity) {
+    const std::string out{
+        "Left wheel speed target was: " +
+        std::to_string(currentSpeedTarget.leftWheel) +
+        "\nRestricting to max speed: " + std::to_string(m_maxVelocity)};
+    ROS_WARN(out.c_str());
+    currentSpeedTarget.leftWheel = m_maxVelocity;
+    speedWasConstrained = true;
+  }
+
+  if (currentSpeedTarget.rightWheel > m_maxVelocity) {
+    const std::string out{
+        "Right wheel speed target was: " +
+        std::to_string(currentSpeedTarget.rightWheel) +
+        "\nRestricting to max speed: " + std::to_string(m_maxVelocity)};
+    ROS_WARN(out.c_str());
+    currentSpeedTarget.rightWheel = m_maxVelocity;
+    speedWasConstrained = true;
+  }
+
+  if (speedWasConstrained) {
+    m_services.setTargetSpeed(currentSpeedTarget);
+  }
+
+  m_previousSpeedData = currentSpeedTarget;
+  m_outputBuffer.push_back(CommsParser::getSpeedCommand(currentSpeedTarget));
 }
