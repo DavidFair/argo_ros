@@ -11,6 +11,7 @@
 #include "SerialInterface.hpp"
 
 using ::testing::AnyNumber;
+using ::testing::Contains;
 using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::Test;
@@ -90,8 +91,8 @@ TEST(ArgoDriverTimeout, pingIsSent) {
                           usePingTimeout);
 
   // Expect a ping out only without triggering deadman
-  std::vector<std::string> expectedPing{"!P\n"};
-  EXPECT_CALL(mockComms, write(expectedPing)).Times(1);
+  std::string expectedPing{"!P\n"};
+  EXPECT_CALL(mockComms, write(Contains(expectedPing))).Times(1);
   testInstance.loop(ros::TimerEvent{});
 }
 
