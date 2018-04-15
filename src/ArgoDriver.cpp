@@ -140,6 +140,7 @@ void ArgoDriver::parseCommand(CommandType type, const std::string &s) {
     return;
   case CommandType::Encoder: {
     auto encoderData = CommsParser::parseEncoderCommand(s);
+    m_publisher.publishCurrentOdometry(encoderData);
     m_publisher.publishEncoderCount(encoderData);
     break;
   }
