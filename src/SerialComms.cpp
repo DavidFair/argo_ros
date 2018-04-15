@@ -141,33 +141,32 @@ std::vector<std::string> SerialComms::read() {
 bool SerialComms::write(const std::vector<std::string> &strings) {
   isSerialValid();
 
-  bool writeWasGood = true;
+  std::string toOutput;
 
   for (const auto &i : strings) {
-    // Good write return
-    const std::string out{"Writing to Arduino:\n" + i};
-    ROS_DEBUG(out.c_str());
-
-    // We have to always attempt to read before continuing in case the Arduino
-    // is sending to us first filling the buffer and deadlocking
-    readToInternalBuffer();
-
-    int count = ::write(fileDescriptor, i.c_str(), i.size());
-
-    if (count >= 0) {
-      continue;
-    }
-
-    if (errno == EAGAIN) {
-      ROS_WARN("Could not write the serial port. The output buffer is full.");
-      writeWasGood = false;
-      break;
-    } else {
-      throwLinuxError("Failed to write to serial device");
-    }
+    toOutput.append(i);
   }
 
-  return writeWasGood;
+  const std::string out{"Writing to Arduino:\n" + toOutput};
+  ROS_DEBUG(out.c_str());
+
+  // We have to always attempt to read before continuing in case the Arduino
+  // is sending to us first filling the buffer and deadlocking
+  readToInternalBuffer();
+
+  int count = ::write(fileDescriptor, toOutput.c_str(), toOutput.size());
+
+  if (count >= 0) {
+    // Write was good
+    return true;
+  }
+
+  if (errno == EAGAIN) {
+    ROS_WARN("Could not write the serial port. The output buffer is full.");
+  } else {
+    throwLinuxError("Failed to write to serial device");
+  }
+  return false;
 }
 
 /*

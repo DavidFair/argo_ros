@@ -22,6 +22,7 @@ find_package(Boost REQUIRED COMPONENTS system)
 add_message_files(
   FILES
   CurrentOdom.msg
+  Speeds.msg
 )
 
 ## Specify the service files required to provide a service interface

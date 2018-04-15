@@ -19,19 +19,23 @@ public:
   /// Publishes the current encoder count on the vehicle
   void publishEncoderCount(const EncoderData &data);
 
+  /// Publishes the target vehicle speed
+  void publishTargetSpeed(const SpeedData &data);
 private:
-  /// A handle to the left encoder count publisher
-  ros::Publisher m_leftEncoderPub;
-  /// A handle to the right encoder count publisher
-  ros::Publisher m_rightEncoderPub;
+  /// A handle to publish the vehicles current speed
+  ros::Publisher m_currentSpeedPub;
+
+  /// A handle to publish the vehicles target speed
+  ros::Publisher m_targetSpeedPub;
 
   /// A handle to publish the current odometry
   ros::Publisher m_odomPub;
 
-  /// A handle to the left speed publisher
-  ros::Publisher m_leftSpeedPub;
-  /// A handle to the right speed publisher
-  ros::Publisher m_rightSpeedPub;
+  /// A handle to publish the current left encoder count
+  ros::Publisher m_leftEncoderPub;
+
+  /// A handle to publish the current right encoder count
+  ros::Publisher m_rightEncoderPub;
 };
 
 #endif // PUBLISHER_HPP_
