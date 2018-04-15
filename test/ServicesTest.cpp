@@ -7,6 +7,7 @@
 #include "ros/ros.h"
 #include "gtest/gtest.h"
 
+#include "ArgoGlobals.hpp"
 #include "Services.hpp"
 
 namespace {
@@ -15,8 +16,6 @@ const std::string SET_SPEED_SERV_NAME{"set_target_speed"};
 const std::string SET_ODOM_SERV_NAME{"set_target_odom"};
 const std::string STOP_SERV_NAME{"stop_vehicle"};
 
-const int METERS_TO_MILLIS{1000};
-const double LENGTH_BETWEEN_WHEELS{1.473}; // Meters
 const double TURN_SPEED = 1; // Turn speed per wheel as defined in Services.cpp
 
 void rosSpinThread(std::atomic<bool> &runThread) {
@@ -27,7 +26,7 @@ void rosSpinThread(std::atomic<bool> &runThread) {
 
 int calculateChangeInVelocity(double radians, double time) {
   double angularMomentum = radians / time;
-  double velocityChange = (angularMomentum * LENGTH_BETWEEN_WHEELS) / 2;
+  double velocityChange = (angularMomentum * g_LENGTH_BETWEEN_WHEELS) / 2;
   return velocityChange * METERS_TO_MILLIS;
 }
 
@@ -193,7 +192,8 @@ TEST(Services_Odom, turnStopsAfterTime) {
   const double changeInRad = M_PI_4; // or 45 degrees
   const double velocity = 10;        // m/s
 
-  const double timeForTurn = changeInRad / (TURN_SPEED / LENGTH_BETWEEN_WHEELS);
+  const double timeForTurn =
+      changeInRad / (TURN_SPEED / g_LENGTH_BETWEEN_WHEELS);
 
   argo_driver::SetTargetOdom msg;
   msg.request.isRadians = true;
@@ -233,7 +233,8 @@ TEST(Services_Odom, turnOnSpotStopsAfterTime) {
   const double changeInRad = M_PI_4; // or 45 degrees
   const double velocity = 10;        // m/s
 
-  const double timeForTurn = changeInRad / (TURN_SPEED / LENGTH_BETWEEN_WHEELS);
+  const double timeForTurn =
+      changeInRad / (TURN_SPEED / g_LENGTH_BETWEEN_WHEELS);
 
   argo_driver::SetTargetOdom msg;
   msg.request.isRadians = true;

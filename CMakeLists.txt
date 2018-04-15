@@ -18,7 +18,13 @@ find_package(catkin REQUIRED COMPONENTS
 ## System dependencies are found with CMake's conventions
 find_package(Boost REQUIRED COMPONENTS system)
 
-## Specify the message files required to provide a service interface
+## Add message files used in publishing topics
+add_message_files(
+  FILES
+  CurrentOdom.msg
+)
+
+## Specify the service files required to provide a service interface
 add_service_files(
   FILES
   SetTargetOdom.srv
@@ -143,6 +149,7 @@ target_link_libraries(${PROJECT_NAME}_node
 catkin_add_gmock(${PROJECT_NAME}-test
   test/ArgoDriverTest.cpp
   test/CommsParserTest.cpp
+  test/PublisherTest.cpp
   test/ServicesTest.cpp)
 
 if(TARGET ${PROJECT_NAME}-test)

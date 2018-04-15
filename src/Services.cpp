@@ -4,6 +4,7 @@
 #include "boost/bind.hpp"
 #include "ros/ros.h"
 
+#include "ArgoGlobals.hpp"
 #include "Services.hpp"
 #include "argo_driver/SetTargetOdom.h"
 #include "argo_driver/SetWheelSpeeds.h"
@@ -13,13 +14,8 @@ const std::string SET_WHEEL_SPEED_SERV_NAME{"set_target_speed"};
 const std::string SET_ODOM_SERV_NAME{"set_target_odom"};
 const std::string STOP_VEHICLE_SERV_NAME{"stop_vehicle"};
 
-// The length between the wheels on the argo
-const double LENGTH_BETWEEN_WHEELS{1.473}; // Meters
-
 /// Converts degrees to radians
 double convertToRadians(double degrees) { return degrees * (M_PI / 180); }
-
-const int METERS_TO_MILLIS{1000};
 
 /*
  * Calculates the change in velocity for each wheel (therefore the
@@ -39,7 +35,7 @@ int calcVelocityDelta(double targetTime, double deltaTheta) {
   // The delta between wheels is given as angularMomentum * Distance between
   // wheels, half of each component is added to each respective wheel
   const double velocityDifference =
-      (angularMomentum * LENGTH_BETWEEN_WHEELS) / 2;
+      (angularMomentum * g_LENGTH_BETWEEN_WHEELS) / 2;
 
   // Convert to millis
   return velocityDifference * METERS_TO_MILLIS;
@@ -55,7 +51,7 @@ int calcVelocityDelta(double targetTime, double deltaTheta) {
  * @return The time required to complete the turn in seconds
  */
 double calcTimeForTurn(double turnRate, double deltaTheta) {
-  double angularMomentum = turnRate / LENGTH_BETWEEN_WHEELS;
+  double angularMomentum = turnRate / g_LENGTH_BETWEEN_WHEELS;
   return deltaTheta / angularMomentum;
 }
 
