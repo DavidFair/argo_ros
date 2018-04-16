@@ -103,9 +103,9 @@ TEST(ArgoDriverTimeout, pingTimeout) {
   ArgoDriver testInstance(static_cast<SerialInterface &>(mockComms), handle,
                           usePingTimeout);
 
-  // We should only get a deadman command when this triggers
-  std::vector<std::string> expectedDeadman{"!D\n"};
-  EXPECT_CALL(mockComms, write(expectedDeadman)).Times(1);
+  // We should set the speed to 0 when this triggers"
+  const std::string expectedSpeed{"!T L_SPEED:0 R_SPEED:0\n"};
+  EXPECT_CALL(mockComms, write(Contains(expectedSpeed))).Times(1);
   std::this_thread::sleep_for(TIMEOUT);
   testInstance.loop(ros::TimerEvent{});
 }
