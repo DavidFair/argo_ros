@@ -42,7 +42,7 @@ private:
   void readFromArduino();
 
   /// Appends a new target speed, if it has changed, to the outgoing buffer
-  void updateTargetSpeed();
+  void updateTargetSpeed(SpeedData currentSpeedTarget);
 
   // *ROS member variables*
 
@@ -64,6 +64,9 @@ private:
   // *Ping related variables*
   /// Indicates whether pings are sent and used to timeout the node
   const bool m_usePings;
+  /// Tracks whether any comms have been heard yet
+  bool m_commsHasBeenMade;
+
   /// The time that the last incoming ping was received
   std::chrono::time_point<std::chrono::steady_clock> m_lastIncomingPingTime;
 
