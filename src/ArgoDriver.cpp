@@ -38,7 +38,7 @@ ArgoDriver::ArgoDriver(SerialInterface &commsObj, ros::NodeHandle &nodeHandle,
                     METERS_TO_MILLIS),
       m_previousSpeedData(0, 0),
       m_lastSpeedCommandTime(std::chrono::steady_clock::now()),
-      m_usePings(useTimeouts),
+      m_usePings(useTimeouts), m_commsHasBeenMade(false),
       m_lastIncomingPingTime(std::chrono::steady_clock::now()),
       m_publisher(nodeHandle), m_serial(commsObj), m_services(nodeHandle) {}
 
@@ -53,13 +53,13 @@ void ArgoDriver::loop(const ros::TimerEvent &event) {
   // Prevent the timer from firing again until we are finished
   m_loopTimer.stop();
 
-  bool enterNextLoop = true;
-
   readFromArduino();
 
-  updateTargetSpeed();
+  // If the ping is good set the new speed to the target otherwise 0
+  const auto newSpeed =
+      exchangePing() ? m_services.getTargetSpeed() : SpeedData(0, 0);
 
-  enterNextLoop &= exchangePing();
+  updateTargetSpeed(std::move(newSpeed));
 
   if (m_serial.write(m_outputBuffer)) {
     m_outputBuffer.clear();
@@ -70,7 +70,7 @@ void ArgoDriver::loop(const ros::TimerEvent &event) {
   // Start any pending timers if there are any
   m_services.startTimers();
 
-  if (ros::ok() && enterNextLoop) {
+  if (ros::ok()) {
     m_loopTimer.start();
   } else {
     ros::shutdown();
@@ -111,18 +111,25 @@ void ArgoDriver::setup() {
 bool ArgoDriver::exchangePing() {
   if (!m_usePings) {
     // For unit testing where we don't want to timeout
+
     return true;
   }
 
   m_outputBuffer.push_back(CommsParser::getPingCommand());
 
+  if (!m_commsHasBeenMade) {
+    // And if we haven't heard anything yet wait for serial negotiation
+    // to finish instead of spewing warnings
+    ROS_INFO("Waiting for first comms to happen");
+    return true;
+  }
+
   // Check if we have exceeded the maximum ping time yet
   auto currentTime = std::chrono::steady_clock::now();
   auto duration = currentTime - m_lastIncomingPingTime;
   if (duration > TIMEOUT_DURATION) {
-    ROS_FATAL("Arduino has not responded in timeout. Entering deadman mode.");
-    m_outputBuffer.clear();
-    m_outputBuffer.push_back(CommsParser::getDeadmanCommand());
+    ROS_WARN("Arduino has not responded in timeout. Setting speeds to 0");
+    m_services.setTargetSpeed(SpeedData{0, 0});
     return false;
   }
   return true;
@@ -223,6 +230,10 @@ void ArgoDriver::parseCommand(CommandType type, const std::string &s) {
 void ArgoDriver::readFromArduino() {
   // Read from Arduino
   const auto serialInput = m_serial.read();
+  if (!serialInput.empty()) {
+    m_commsHasBeenMade = true;
+  }
+
   for (const auto &incomingString : serialInput) {
     auto commandType = CommsParser::parseIncomingBuffer(incomingString);
     parseCommand(commandType, incomingString);
@@ -235,10 +246,11 @@ void ArgoDriver::readFromArduino() {
  * the requested speed was greater than the maximum velocity it
  * constrains this speed to the maximum velocity and emits a ROS
  * warning.
+ *
+ * @param currentSpeedTarget The new speed to send to the Arduino
  */
-void ArgoDriver::updateTargetSpeed() {
+void ArgoDriver::updateTargetSpeed(SpeedData currentSpeedTarget) {
   // Get our current target speed and send an update if required
-  auto currentSpeedTarget = m_services.getTargetSpeed();
 
   if (currentSpeedTarget == m_previousSpeedData) {
     const auto timeSinceLastCommand =
@@ -259,7 +271,7 @@ void ArgoDriver::updateTargetSpeed() {
     m_services.setTargetSpeed(currentSpeedTarget);
   }
 
-  m_previousSpeedData = currentSpeedTarget;
+  m_previousSpeedData = std::move(currentSpeedTarget);
   m_publisher.publishTargetSpeed(currentSpeedTarget);
   m_outputBuffer.push_back(CommsParser::getSpeedCommand(currentSpeedTarget));
   m_lastSpeedCommandTime = std::chrono::steady_clock::now();
