@@ -10,7 +10,7 @@
 #include "CommsParser.hpp"
 #include "Publisher.hpp"
 #include "SerialInterface.hpp"
-#include "Services.hpp"
+#include "Subscriber.hpp"
 
 /**
  * Implements the ROS node for controlling the Argo
@@ -23,6 +23,9 @@ public:
 
   /// The main loop that is executed by the ROS node
   void loop(const ros::TimerEvent &);
+
+  /// Sets a new target speed for the following loop
+  void setNewSpeedTarget(SpeedData newTarget) { m_newSpeedData = newTarget; }
 
   /// Sets up and fires the main loop
   void setup();
@@ -53,9 +56,12 @@ private:
 
   // *Internal variables*
   /// The maximum allowed velocity of the vehicle
-  const int m_maxVelocity; // TODO
+  const int m_maxVelocity;
   /// The current speed the vehicle should be traveling at
   SpeedData m_previousSpeedData;
+  /// The target speed for the next loop
+  SpeedData m_newSpeedData;
+
   /// The last time the speed command was issued
   std::chrono::time_point<std::chrono::steady_clock> m_lastSpeedCommandTime;
   /// The pending buffer to write to the serial port
@@ -75,8 +81,8 @@ private:
   Publisher m_publisher;
   /// An object which handles communications to the vehicle
   SerialInterface &m_serial;
-  /// An object which provides the nodes services
-  Services m_services;
+  /// An object which provides the nodes Subscriber
+  Subscriber m_subscriber;
 };
 
 #endif

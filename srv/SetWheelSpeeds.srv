@@ -1,3 +1,0 @@
-# Both speeds are in meters per second
-float64 leftWheelTarget
-float64 rightWheelTarget

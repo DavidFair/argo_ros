@@ -40,7 +40,8 @@ ArgoDriver::ArgoDriver(SerialInterface &commsObj, ros::NodeHandle &nodeHandle,
       m_lastSpeedCommandTime(std::chrono::steady_clock::now()),
       m_usePings(useTimeouts), m_commsHasBeenMade(false),
       m_lastIncomingPingTime(std::chrono::steady_clock::now()),
-      m_publisher(nodeHandle), m_serial(commsObj), m_services(nodeHandle) {}
+      m_publisher(nodeHandle), m_serial(commsObj),
+      m_subscriber(nodeHandle, *this) {}
 
 /**
  * Runs the main Argo node loop providing communications to and from
@@ -56,19 +57,15 @@ void ArgoDriver::loop(const ros::TimerEvent &event) {
   readFromArduino();
 
   // If the ping is good set the new speed to the target otherwise 0
-  const auto newSpeed =
-      exchangePing() ? m_services.getTargetSpeed() : SpeedData(0, 0);
+  exchangePing();
 
-  updateTargetSpeed(std::move(newSpeed));
+  updateTargetSpeed(m_newSpeedData);
 
   if (m_serial.write(m_outputBuffer)) {
     m_outputBuffer.clear();
   } else {
     ROS_WARN("Failed to write output buffer, trying again");
   }
-
-  // Start any pending timers if there are any
-  m_services.startTimers();
 
   if (ros::ok()) {
     m_loopTimer.start();
@@ -129,7 +126,7 @@ bool ArgoDriver::exchangePing() {
   auto duration = currentTime - m_lastIncomingPingTime;
   if (duration > TIMEOUT_DURATION) {
     ROS_WARN("Arduino has not responded in timeout. Setting speeds to 0");
-    m_services.setTargetSpeed(SpeedData{0, 0});
+    setNewSpeedTarget(SpeedData{0, 0});
     return false;
   }
   return true;
@@ -268,10 +265,11 @@ void ArgoDriver::updateTargetSpeed(SpeedData currentSpeedTarget) {
 
   if (limitToMaxVelocity(currentSpeedTarget)) {
     // Update with our constrained speed
-    m_services.setTargetSpeed(currentSpeedTarget);
+    setNewSpeedTarget(currentSpeedTarget);
   }
+  // Set our previous target to the new target for the next loop
+  m_previousSpeedData = currentSpeedTarget;
 
-  m_previousSpeedData = std::move(currentSpeedTarget);
   m_publisher.publishTargetSpeed(currentSpeedTarget);
   m_outputBuffer.push_back(CommsParser::getSpeedCommand(currentSpeedTarget));
   m_lastSpeedCommandTime = std::chrono::steady_clock::now();
