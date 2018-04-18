@@ -39,6 +39,7 @@ ArgoDriver::ArgoDriver(SerialInterface &commsObj, ros::NodeHandle &nodeHandle,
       m_previousSpeedData(0, 0),
       m_lastSpeedCommandTime(std::chrono::steady_clock::now()),
       m_usePings(useTimeouts), m_commsHasBeenMade(false),
+      m_lastPingStatus(true),
       m_lastIncomingPingTime(std::chrono::steady_clock::now()),
       m_publisher(nodeHandle), m_serial(commsObj),
       m_subscriber(nodeHandle, *this) {}
@@ -56,10 +57,21 @@ void ArgoDriver::loop(const ros::TimerEvent &event) {
 
   readFromArduino();
 
-  // If the ping is good set the new speed to the target otherwise 0
-  exchangePing();
+  const auto pingIsGood = exchangePing();
 
-  updateTargetSpeed(m_newSpeedData);
+  if (pingIsGood) {
+    if (!m_lastPingStatus) {
+      ROS_INFO("Connection Re-established");
+      m_lastPingStatus = true;
+    }
+    // Always update target speed when ping is good
+    updateTargetSpeed(m_newSpeedData);
+  } else {
+    // We do not send anything in case we are in the Arduino bootloader
+    // where any comms causes it to hang
+    m_outputBuffer.clear();
+    m_lastPingStatus = false;
+  }
 
   if (m_serial.write(m_outputBuffer)) {
     m_outputBuffer.clear();
@@ -112,20 +124,21 @@ bool ArgoDriver::exchangePing() {
     return true;
   }
 
-  m_outputBuffer.push_back(CommsParser::getPingCommand());
-
   if (!m_commsHasBeenMade) {
     // And if we haven't heard anything yet wait for serial negotiation
     // to finish instead of spewing warnings
     ROS_INFO("Waiting for first comms to happen");
-    return true;
+    return false;
   }
+
+  m_outputBuffer.push_back(CommsParser::getPingCommand());
 
   // Check if we have exceeded the maximum ping time yet
   auto currentTime = std::chrono::steady_clock::now();
   auto duration = currentTime - m_lastIncomingPingTime;
   if (duration > TIMEOUT_DURATION) {
-    ROS_WARN("Arduino has not responded in timeout. Setting speeds to 0");
+    ROS_WARN("Arduino has not responded in timeout. Waiting for it to "
+             "establish comms.");
     setNewSpeedTarget(SpeedData{0, 0});
     return false;
   }
