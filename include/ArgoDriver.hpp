@@ -66,6 +66,8 @@ private:
   const bool m_usePings;
   /// Tracks whether any comms have been heard yet
   bool m_commsHasBeenMade;
+  /// Tracks last ping status for useful message
+  bool m_lastPingStatus;
 
   /// The time that the last incoming ping was received
   std::chrono::time_point<std::chrono::steady_clock> m_lastIncomingPingTime;

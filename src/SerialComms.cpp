@@ -26,17 +26,23 @@ namespace {
  * @param serialControl The read termios structure which is modified in place
  */
 void getArduinoSerialFlags(termios &serialControl) {
-  // Options adapted from https://playground.arduino.cc/Interfacing/LinuxTTY
-  serialControl.c_cflag |= CRTSCTS;
-  serialControl.c_iflag |= (IGNBRK | BRKINT | IMAXBEL | IXON);
-  serialControl.c_oflag |= OPOST;
-  serialControl.c_lflag |= (ISIG | ICANON | IEXTEN | NOFLSH);
+  // Options adapted from
+  // https://github.com/todbot/arduino-serial/blob/master/arduino-serial-lib.c
+  serialControl.c_cflag &= ~PARENB;
+  serialControl.c_cflag &= ~CSTOPB;
+  serialControl.c_cflag &= ~CSIZE;
+  serialControl.c_cflag |= CS8;
+  // no flow control
+  serialControl.c_cflag &= ~CRTSCTS;
 
-  // Turn off echo
-  serialControl.c_lflag &= ~(ECHO | ECHOE | ECHOK | ECHONL);
-  serialControl.c_iflag &= ~ICRNL;
-  // Do not convert LF to CRLF
-  serialControl.c_oflag &= ~ONLCR;
+  serialControl.c_cflag &= ~HUPCL; // disable hang-up-on-close to avoid reset
+
+  serialControl.c_cflag |= CREAD | CLOCAL; // turn on READ & ignore ctrl lines
+  serialControl.c_iflag &= ~(IXON | IXOFF | IXANY); // turn off s/w flow ctrl
+
+  serialControl.c_lflag |= ICANON;                 // Get whole lines only
+  serialControl.c_lflag &= ~(ECHO | ECHOE | ISIG); // make raw
+  serialControl.c_oflag &= ~OPOST;                 // make raw
 }
 
 /*
