@@ -1,7 +1,10 @@
 #ifndef SERIAL_COMMS_HPP_
 #define SERIAL_COMMS_HPP_
 
+#include <atomic>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "SerialInterface.hpp"
@@ -29,6 +32,15 @@ private:
   void isSerialValid() const;
   /// Sets various terminal settings on the opened port
   void setSerialPortSettings(int fileDescriptor, int baudRate);
+
+  /// Flag to indicate to other threads when to stop running
+  std::atomic<bool> m_keepRunning{true};
+
+  /// Thread to read from serial in a loop
+  std::thread m_readThread;
+
+  /// Mutex to protect the read buffer
+  std::mutex m_readBufferMutex;
 
   /// Buffers any incoming messages from the tty device pending. (See read())
   std::string m_pendingReadBuffer{};
