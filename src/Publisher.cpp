@@ -6,9 +6,10 @@
 #include "std_msgs/Int16.h"
 
 #include "ArgoGlobals.hpp"
+#include "CommsParser.hpp"
 #include "Publisher.hpp"
 #include "argo_driver/CurrentOdom.h"
-#include "argo_driver/Speeds.h"
+#include "argo_driver/Wheels.h"
 
 namespace {
 // Only allow the last 10 messages to queue before they get stale
@@ -19,6 +20,7 @@ const size_t TOPIC_QUEUE = 10;
 const std::string CURRENT_SPEED{"current_speed"};
 const std::string TARGET_SPEED{"target_speed"};
 const std::string ODOM_TOPIC_NAME{"current_odom"};
+const std::string PWM_TOPIC_NAME{"current_pwm"};
 
 const std::string L_ENC_TOPIC_NAME{"left_encoder_count"};
 const std::string R_ENC_TOPIC_NAME{"right_encoder_count"};
@@ -37,15 +39,17 @@ double convertRadiansToDegrees(double radians) {
  * @param handle The ROS node to create publishers for
  */
 Publisher::Publisher(ros::NodeHandle &handle)
-    : m_currentSpeedPub(), m_targetSpeedPub(), m_odomPub(), m_leftEncoderPub(),
-      m_rightEncoderPub() {
+    : m_currentSpeedPub(), m_targetSpeedPub(), m_odomPub(), m_pwmPub(),
+      m_leftEncoderPub(), m_rightEncoderPub() {
   m_currentSpeedPub =
-      handle.advertise<argo_driver::Speeds>(CURRENT_SPEED, TOPIC_QUEUE);
+      handle.advertise<argo_driver::Wheels>(CURRENT_SPEED, TOPIC_QUEUE);
   m_targetSpeedPub =
-      handle.advertise<argo_driver::Speeds>(TARGET_SPEED, TOPIC_QUEUE);
+      handle.advertise<argo_driver::Wheels>(TARGET_SPEED, TOPIC_QUEUE);
 
   m_odomPub =
       handle.advertise<argo_driver::CurrentOdom>(ODOM_TOPIC_NAME, TOPIC_QUEUE);
+
+  m_pwmPub = handle.advertise<argo_driver::Wheels>(PWM_TOPIC_NAME, TOPIC_QUEUE);
 
   m_leftEncoderPub =
       handle.advertise<std_msgs::Int16>(L_ENC_TOPIC_NAME, TOPIC_QUEUE);
@@ -64,9 +68,9 @@ void Publisher::publishCurrentSpeed(const SpeedData &data) {
     return;
   }
 
-  argo_driver::Speeds msg;
-  msg.leftWheel = data.leftWheel / METERS_TO_MILLIS;
-  msg.rightWheel = data.rightWheel / METERS_TO_MILLIS;
+  argo_driver::Wheels msg;
+  msg.leftWheel = (double)data.leftWheel / METERS_TO_MILLIS;
+  msg.rightWheel = (double)data.rightWheel / METERS_TO_MILLIS;
 
   m_currentSpeedPub.publish(std::move(msg));
 }
@@ -133,6 +137,23 @@ void Publisher::publishEncoderCount(const EncoderData &data) {
 }
 
 /**
+ * Publishes the current PWM values from the input data. (See PwmValues).
+ *
+ * @param data The PWM values to publish
+ */
+void Publisher::publishPwmValues(const PwmData &vals) {
+  if (!vals.isValid) {
+    return;
+  }
+
+  argo_driver::Wheels msg;
+  msg.leftWheel = vals.leftWheel;
+  msg.rightWheel = vals.rightWheel;
+
+  m_pwmPub.publish(std::move(msg));
+}
+
+/**
  * Publishes the current target speed in meters per second which is passed
  * as a parameter. (See SpeedData)
  *
@@ -143,9 +164,9 @@ void Publisher::publishTargetSpeed(const SpeedData &data) {
     return;
   }
 
-  argo_driver::Speeds msg;
-  msg.leftWheel = data.leftWheel / METERS_TO_MILLIS;
-  msg.rightWheel = data.rightWheel / METERS_TO_MILLIS;
+  argo_driver::Wheels msg;
+  msg.leftWheel = (double)data.leftWheel / METERS_TO_MILLIS;
+  msg.rightWheel = (double)data.rightWheel / METERS_TO_MILLIS;
 
   m_targetSpeedPub.publish(std::move(msg));
 }

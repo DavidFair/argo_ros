@@ -22,7 +22,7 @@ find_package(catkin REQUIRED COMPONENTS
 add_message_files(
   FILES
   CurrentOdom.msg
-  Speeds.msg
+  Wheels.msg
 )
 
 ## Indicate to CMake we require the following external services

@@ -219,6 +219,10 @@ void ArgoDriver::parseCommand(CommandType type, const std::string &s) {
     m_lastIncomingPingTime = std::chrono::steady_clock::now();
     break;
   }
+  case CommandType::Pwm: {
+    auto pwmData = CommsParser::parsePwmCommand(s);
+    m_publisher.publishPwmValues(pwmData);
+  }
   case CommandType::Speed: {
     auto speedData = CommsParser::parseSpeedCommand(s);
     m_publisher.publishCurrentSpeed(speedData);
