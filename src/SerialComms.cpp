@@ -141,6 +141,11 @@ std::vector<std::string> SerialComms::read() {
   const char EOLToken = '\n';
   const auto foundStrings = splitByToken(parsedString, EOLToken);
 
+  for (const auto &inString : foundStrings) {
+    const std::string out{"Read in: " + inString};
+    ROS_DEBUG(out.c_str());
+  }
+
   return foundStrings;
 }
 

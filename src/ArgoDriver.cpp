@@ -222,6 +222,7 @@ void ArgoDriver::parseCommand(CommandType type, const std::string &s) {
   case CommandType::Pwm: {
     auto pwmData = CommsParser::parsePwmCommand(s);
     m_publisher.publishPwmValues(pwmData);
+    break;
   }
   case CommandType::Speed: {
     auto speedData = CommsParser::parseSpeedCommand(s);
