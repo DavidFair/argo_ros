@@ -265,8 +265,9 @@ void ArgoDriver::readFromArduino() {
  */
 void ArgoDriver::updateTargetSpeed(SpeedData currentSpeedTarget) {
   // Get our current target speed and send an update if required
-
   if (currentSpeedTarget == m_previousSpeedData) {
+    m_publisher.publishTargetSpeed(m_previousSpeedData);
+
     const auto timeSinceLastCommand =
         std::chrono::steady_clock::now() - m_lastSpeedCommandTime;
 
@@ -274,7 +275,6 @@ void ArgoDriver::updateTargetSpeed(SpeedData currentSpeedTarget) {
       // Reissue the command
       m_outputBuffer.push_back(
           CommsParser::getSpeedCommand(currentSpeedTarget));
-      m_publisher.publishTargetSpeed(m_previousSpeedData);
       m_lastSpeedCommandTime = std::chrono::steady_clock::now();
     }
     return;

@@ -160,9 +160,6 @@ void Publisher::publishPwmValues(const PwmData &vals) {
  * @param data Target speed to publish
  */
 void Publisher::publishTargetSpeed(const SpeedData &data) {
-  if (!data.isValid) {
-    return;
-  }
 
   argo_driver::Wheels msg;
   msg.leftWheel = (double)data.leftWheel / METERS_TO_MILLIS;

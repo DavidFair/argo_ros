@@ -75,10 +75,10 @@ void Subscriber::setNewSpeed(const int leftWheel, const int rightWheel) const {
  * @param msg The twist message to process
  */
 void Subscriber::setTwist(const geometry_msgs::Twist::ConstPtr &msg) const {
-  const auto targetAngularVel = msg->angular.z;
+  const auto targetAngularVel = -(msg->angular.z);
 
   // Convert
-  const auto targetForwardVel = -(msg->linear.x);
+  const auto targetForwardVel = msg->linear.x;
 
   const double targetSpeed = targetForwardVel * METERS_TO_MILLIS;
   const int velocityDifference = calcVelocityDelta(targetAngularVel);
