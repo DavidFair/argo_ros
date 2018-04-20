@@ -3,7 +3,6 @@
 #include <utility>
 
 #include "ros/ros.h"
-#include "std_msgs/Int16.h"
 
 #include "ArgoGlobals.hpp"
 #include "CommsParser.hpp"
@@ -17,13 +16,12 @@ const size_t TOPIC_QUEUE = 10;
 
 // Topic Names:
 
-const std::string CURRENT_SPEED{"current_speed"};
 const std::string TARGET_SPEED{"target_speed"};
+
+const std::string ENC_TOPIC_NAME{"current_encoder"};
+const std::string CURRENT_SPEED{"current_speed"};
 const std::string ODOM_TOPIC_NAME{"current_odom"};
 const std::string PWM_TOPIC_NAME{"current_pwm"};
-
-const std::string L_ENC_TOPIC_NAME{"left_encoder_count"};
-const std::string R_ENC_TOPIC_NAME{"right_encoder_count"};
 
 /// Converts radians to degrees
 double convertRadiansToDegrees(double radians) {
@@ -40,7 +38,7 @@ double convertRadiansToDegrees(double radians) {
  */
 Publisher::Publisher(ros::NodeHandle &handle)
     : m_currentSpeedPub(), m_targetSpeedPub(), m_odomPub(), m_pwmPub(),
-      m_leftEncoderPub(), m_rightEncoderPub() {
+      m_encoderPub() {
   m_currentSpeedPub =
       handle.advertise<argo_driver::Wheels>(CURRENT_SPEED, TOPIC_QUEUE);
   m_targetSpeedPub =
@@ -51,10 +49,8 @@ Publisher::Publisher(ros::NodeHandle &handle)
 
   m_pwmPub = handle.advertise<argo_driver::Wheels>(PWM_TOPIC_NAME, TOPIC_QUEUE);
 
-  m_leftEncoderPub =
-      handle.advertise<std_msgs::Int16>(L_ENC_TOPIC_NAME, TOPIC_QUEUE);
-  m_rightEncoderPub =
-      handle.advertise<std_msgs::Int16>(R_ENC_TOPIC_NAME, TOPIC_QUEUE);
+  m_encoderPub =
+      handle.advertise<argo_driver::Wheels>(ENC_TOPIC_NAME, TOPIC_QUEUE);
 }
 
 /**
@@ -126,14 +122,11 @@ void Publisher::publishEncoderCount(const EncoderData &data) {
     return;
   }
 
-  std_msgs::Int16 leftMessage;
-  leftMessage.data = data.leftWheel;
+  argo_driver::Wheels msg;
+  msg.leftWheel = data.leftWheel;
+  msg.rightWheel = data.rightWheel;
 
-  std_msgs::Int16 rightMessage;
-  rightMessage.data = data.rightWheel;
-
-  m_leftEncoderPub.publish(std::move(leftMessage));
-  m_rightEncoderPub.publish(std::move(rightMessage));
+  m_encoderPub.publish(std::move(msg));
 }
 
 /**

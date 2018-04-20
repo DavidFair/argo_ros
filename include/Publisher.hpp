@@ -41,11 +41,8 @@ private:
   /// A handle to publish the current PWM values
   ros::Publisher m_pwmPub;
 
-  /// A handle to publish the current left encoder count
-  ros::Publisher m_leftEncoderPub;
-
-  /// A handle to publish the current right encoder count
-  ros::Publisher m_rightEncoderPub;
+  /// A handle to publish the current encoder counts
+  ros::Publisher m_encoderPub;
 };
 
 #endif // PUBLISHER_HPP_

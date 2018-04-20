@@ -23,7 +23,7 @@ int calculateChangeInVelocity(double angularMomentum) {
 
 void rosSpinAndSleep() {
   using namespace std::chrono_literals;
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < 2; i++) {
     std::this_thread::sleep_for(50ms);
     ros::spinOnce();
   }
