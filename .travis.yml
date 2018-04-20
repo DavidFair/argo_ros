@@ -46,7 +46,7 @@ before_install:
   - cd ~/build_ws/src
   - git clone --depth=1 https://github.com/google/googletest.git
 
-  - source ~/ros_catkin_ws/install_isolated/setup.bash
+  - source ~/ros_catkin_ws/devel_isolated/setup.bash
 
 install:
   # Based on initial tutorials for creating ROS workspaces
