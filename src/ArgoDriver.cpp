@@ -41,8 +41,7 @@ ArgoDriver::ArgoDriver(SerialInterface &commsObj, ros::NodeHandle &nodeHandle,
       m_usePings(useTimeouts), m_commsHasBeenMade(false),
       m_lastPingStatus(true),
       m_lastIncomingPingTime(std::chrono::steady_clock::now()),
-      m_publisher(nodeHandle), m_serial(commsObj),
-      m_subscriber(nodeHandle, *this) {}
+      m_publisher(nodeHandle), m_serial(commsObj), m_subscriber(nodeHandle) {}
 
 /**
  * Runs the main Argo node loop providing communications to and from
@@ -59,19 +58,21 @@ void ArgoDriver::loop(const ros::TimerEvent &event) {
 
   const auto pingIsGood = exchangePing();
 
-  if (pingIsGood) {
-    if (!m_lastPingStatus) {
-      ROS_INFO("Connection Re-established");
-      m_lastPingStatus = true;
-    }
-    // Always update target speed when ping is good
-    updateTargetSpeed(m_newSpeedData);
-  } else {
+  if (!pingIsGood) {
     // We do not send anything in case we are in the Arduino bootloader
     // where any comms causes it to hang
     m_outputBuffer.clear();
     m_lastPingStatus = false;
+    m_loopTimer.start();
+    return;
   }
+
+  if (!m_lastPingStatus) {
+    ROS_INFO("Connection Re-established");
+    m_lastPingStatus = true;
+  }
+  // Always update target speed when ping is good
+  updateTargetSpeed(m_subscriber.getLastSpeedTarget());
 
   if (m_serial.write(m_outputBuffer)) {
     m_outputBuffer.clear();
@@ -139,7 +140,7 @@ bool ArgoDriver::exchangePing() {
   if (duration > TIMEOUT_DURATION) {
     ROS_WARN("Arduino has not responded in timeout. Waiting for it to "
              "establish comms.");
-    setNewSpeedTarget(SpeedData{0, 0});
+    m_subscriber.resetLastSpeedTarget();
     return false;
   }
   return true;
@@ -281,10 +282,8 @@ void ArgoDriver::updateTargetSpeed(SpeedData currentSpeedTarget) {
     return;
   }
 
-  if (limitToMaxVelocity(currentSpeedTarget)) {
-    // Update with our constrained speed
-    setNewSpeedTarget(currentSpeedTarget);
-  }
+  limitToMaxVelocity(currentSpeedTarget);
+
   // Set our previous target to the new target for the next loop
   m_previousSpeedData = currentSpeedTarget;
 

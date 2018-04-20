@@ -24,9 +24,6 @@ public:
   /// The main loop that is executed by the ROS node
   void loop(const ros::TimerEvent &);
 
-  /// Sets a new target speed for the following loop
-  void setNewSpeedTarget(SpeedData newTarget) { m_newSpeedData = newTarget; }
-
   /// Sets up and fires the main loop
   void setup();
 
@@ -59,8 +56,6 @@ private:
   const int m_maxVelocity;
   /// The current speed the vehicle should be traveling at
   SpeedData m_previousSpeedData;
-  /// The target speed for the next loop
-  SpeedData m_newSpeedData;
 
   /// The last time the speed command was issued
   std::chrono::time_point<std::chrono::steady_clock> m_lastSpeedCommandTime;

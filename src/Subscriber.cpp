@@ -45,9 +45,8 @@ int calcVelocityDelta(double angularMomentum) {
  *
  * @param node The ROS node to register the Subscriber with
  */
-Subscriber::Subscriber(ros::NodeHandle &node, ArgoDriver &driverHandle)
-    : m_driverHandle(driverHandle),
-      m_twistServ(node.subscribe(SET_TWIST_TOPIC_NAME, MAX_TOPIC_QUEUE,
+Subscriber::Subscriber(ros::NodeHandle &node)
+    : m_twistServ(node.subscribe(SET_TWIST_TOPIC_NAME, MAX_TOPIC_QUEUE,
                                  &Subscriber::setTwist, this)),
       m_wheelSpeedServ(node.subscribe(SET_WHEEL_SPEEDS_TOPIC_NAME,
                                       MAX_TOPIC_QUEUE,
@@ -62,9 +61,8 @@ Subscriber::Subscriber(ros::NodeHandle &node, ArgoDriver &driverHandle)
  *
  *
  */
-void Subscriber::setNewSpeed(const int leftWheel, const int rightWheel) const {
-  SpeedData newSpeedTarget{leftWheel, rightWheel};
-  m_driverHandle.setNewSpeedTarget(newSpeedTarget);
+void Subscriber::setNewSpeed(const int leftWheel, const int rightWheel) {
+  m_lastSpeedTarget = SpeedData{leftWheel, rightWheel};
 }
 
 /**
@@ -74,7 +72,7 @@ void Subscriber::setNewSpeed(const int leftWheel, const int rightWheel) const {
  *
  * @param msg The twist message to process
  */
-void Subscriber::setTwist(const geometry_msgs::Twist::ConstPtr &msg) const {
+void Subscriber::setTwist(const geometry_msgs::Twist::ConstPtr &msg) {
   const auto targetAngularVel = -(msg->angular.z);
 
   // Convert
@@ -96,7 +94,7 @@ void Subscriber::setTwist(const geometry_msgs::Twist::ConstPtr &msg) const {
  * wheels
  *
  */
-void Subscriber::setWheelSpeed(const argo_driver::Speeds::ConstPtr &msg) const {
+void Subscriber::setWheelSpeed(const argo_driver::Speeds::ConstPtr &msg) {
   setNewSpeed(msg->leftWheel * METERS_TO_MILLIS,
               msg->rightWheel * METERS_TO_MILLIS);
 }

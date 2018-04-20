@@ -144,7 +144,7 @@ catkin_add_gmock(${PROJECT_NAME}-test
   test/ArgoDriverTest.cpp
   test/CommsParserTest.cpp
   test/PublisherTest.cpp
-  test/ServicesTest.cpp)
+  test/SubscriberTest.cpp)
 
 if(TARGET ${PROJECT_NAME}-test)
    target_link_libraries(

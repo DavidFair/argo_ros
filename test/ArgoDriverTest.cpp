@@ -9,11 +9,12 @@
 #include "ArgoDriver.hpp"
 #include "SerialCommsMock.hpp"
 #include "SerialInterface.hpp"
+#include "argo_driver/Wheels.h"
 
 using ::testing::AnyNumber;
-using ::testing::Contains;
 using ::testing::NiceMock;
 using ::testing::Return;
+using ::testing::StrictMock;
 using ::testing::Test;
 using ::testing::_;
 
@@ -35,12 +36,6 @@ protected:
   ArgoDriver testInstance;
 };
 
-void spinRos(std::atomic<bool> &keepSpinning) {
-  while (keepSpinning) {
-    ros::spinOnce();
-  }
-}
-
 } // End of anonymous namespace
 
 TEST_F(ArgoDriverFixture, setupOpensSerial) {
@@ -57,24 +52,23 @@ TEST_F(ArgoDriverFixture, loopCallsReadOnce) {
 }
 
 TEST_F(ArgoDriverFixture, newSpeedIsWrittenToSerial) {
-  const std::string targetService = {"set_target_speed"};
+  const std::string targetService = {"cmd_wheel_speeds"};
 
-  ros::ServiceClient speedClient =
-      handle.serviceClient<argo_driver::SetWheelSpeeds>('/' + HANDLE_PATH +
-                                                        '/' + targetService);
+  const int MAX_TOPIC_LEN = 1;
 
-  argo_driver::SetWheelSpeeds msg;
-  msg.request.leftWheelTarget = 1;
-  msg.request.rightWheelTarget = 2;
+  ros::Publisher speedClient = handle.advertise<argo_driver::Wheels>(
+      '/' + HANDLE_PATH + '/' + targetService, MAX_TOPIC_LEN);
 
-  std::atomic<bool> runThread{true};
-  std::thread rosLoopRunner = std::thread(spinRos, std::ref(runThread));
+  argo_driver::Wheels msg;
+  msg.leftWheel = 1;
+  msg.rightWheel = 2;
 
-  ASSERT_TRUE(speedClient.call(msg));
+  speedClient.publish(msg);
 
-  // Stop thread calling ros::spin
-  runThread = false;
-  rosLoopRunner.join();
+  for (int i = 0; i < 5; i++) {
+    std::this_thread::sleep_for(50ms);
+    ros::spinOnce();
+  }
 
   const std::string expectedString{"!T L_SPEED:1000 R_SPEED:2000\n"};
   const std::vector<std::string> param{expectedString};
@@ -83,30 +77,14 @@ TEST_F(ArgoDriverFixture, newSpeedIsWrittenToSerial) {
   testInstance.loop(ros::TimerEvent{});
 }
 
-TEST(ArgoDriverTimeout, pingIsSent) {
+TEST(ArgoDriverTimeout, NothingIsSentAfterTimeout) {
   ros::NodeHandle handle(HANDLE_PATH);
-  NiceMock<SerialCommsMock> mockComms;
+  StrictMock<SerialCommsMock> mockComms;
   const bool usePingTimeout = true;
   ArgoDriver testInstance(static_cast<SerialInterface &>(mockComms), handle,
                           usePingTimeout);
+  EXPECT_CALL(mockComms, read()).Times(AnyNumber());
 
-  // Expect a ping out only without triggering deadman
-  std::string expectedPing{"!P\n"};
-  EXPECT_CALL(mockComms, write(Contains(expectedPing))).Times(1);
-  testInstance.loop(ros::TimerEvent{});
-}
-
-TEST(ArgoDriverTimeout, pingTimeout) {
-  ros::NodeHandle handle(HANDLE_PATH);
-  NiceMock<SerialCommsMock> mockComms;
-  const bool usePingTimeout = true;
-  ArgoDriver testInstance(static_cast<SerialInterface &>(mockComms), handle,
-                          usePingTimeout);
-
-  // We should set the speed to 0 when this triggers"
-  const std::string expectedSpeed{"!T L_SPEED:0 R_SPEED:0\n"};
-  EXPECT_CALL(mockComms, write(Contains(expectedSpeed))).Times(1);
-  std::this_thread::sleep_for(TIMEOUT);
   testInstance.loop(ros::TimerEvent{});
 }
 
