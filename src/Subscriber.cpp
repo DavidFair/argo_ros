@@ -1,7 +1,7 @@
 #include <cmath>
 #include <math.h>
 
-#include "argo_driver/Speeds.h"
+#include "argo_driver/Wheels.h"
 #include "geometry_msgs/Twist.h"
 #include "ros/ros.h"
 #include "std_msgs/Empty.h"
@@ -11,7 +11,8 @@
 #include "CommsParser.hpp"
 #include "Subscriber.hpp"
 
-namespace {
+namespace
+{
 const std::string SET_WHEEL_SPEEDS_TOPIC_NAME{"cmd_wheel_speeds"};
 const std::string SET_TWIST_TOPIC_NAME{"cmd_vel"};
 
@@ -27,7 +28,8 @@ const int MAX_TOPIC_QUEUE = 10;
  * @return The velocity difference in millimeters / second to apply to
  * each wheel (both negative and positively depending on rotation direction)
  */
-int calcVelocityDelta(double angularMomentum) {
+int calcVelocityDelta(double angularMomentum)
+{
   // The delta between wheels is given as angularMomentum * Distance between
   // wheels, half of each component is added to each respective wheel
   const double velocityDifference =
@@ -61,7 +63,8 @@ Subscriber::Subscriber(ros::NodeHandle &node)
  *
  *
  */
-void Subscriber::setNewSpeed(const int leftWheel, const int rightWheel) {
+void Subscriber::setNewSpeed(const int leftWheel, const int rightWheel)
+{
   m_lastSpeedTarget = SpeedData{leftWheel, rightWheel};
 }
 
@@ -72,7 +75,8 @@ void Subscriber::setNewSpeed(const int leftWheel, const int rightWheel) {
  *
  * @param msg The twist message to process
  */
-void Subscriber::setTwist(const geometry_msgs::Twist::ConstPtr &msg) {
+void Subscriber::setTwist(const geometry_msgs::Twist::ConstPtr &msg)
+{
   const auto targetAngularVel = -(msg->angular.z);
 
   // Convert
@@ -94,7 +98,8 @@ void Subscriber::setTwist(const geometry_msgs::Twist::ConstPtr &msg) {
  * wheels
  *
  */
-void Subscriber::setWheelSpeed(const argo_driver::Speeds::ConstPtr &msg) {
+void Subscriber::setWheelSpeed(const argo_driver::Wheels::ConstPtr &msg)
+{
   setNewSpeed(msg->leftWheel * METERS_TO_MILLIS,
               msg->rightWheel * METERS_TO_MILLIS);
 }
