@@ -11,6 +11,7 @@ const std::string ENC_PREFIX = "!e";
 const std::string FATAL_PREFIX = "!f";
 const std::string SPEED_PREFIX = "!s";
 const std::string PING_PREFIX = "!p";
+const std::string PWM_PREFIX = "!m"; // As in pw 'M' or motor target
 const std::string WARN_PREFIX = "!w";
 
 // Adapted from https://stackoverflow.com/a/44973498
@@ -103,7 +104,7 @@ CommandType CommsParser::parseIncomingBuffer(const std::string &received) {
   }
 
   return determineCommandType(trimmedString);
-}
+} // End of anonymous namespace
 
 // Private methods
 
@@ -123,6 +124,8 @@ CommandType CommsParser::determineCommandType(const std::string &input) {
     return CommandType::Fatal;
   } else if (input.find(PING_PREFIX) != std::string::npos) {
     return CommandType::Ping;
+  } else if (input.find(PWM_PREFIX) != std::string::npos) {
+    return CommandType::Pwm;
   } else if (input.find(SPEED_PREFIX) != std::string::npos) {
     return CommandType::Speed;
   } else if (input.find(WARN_PREFIX) != std::string::npos) {
@@ -173,6 +176,45 @@ EncoderData CommsParser::parseEncoderCommand(const std::string &input) {
   return {leftEncoderCount, rightEncoderCount};
 }
 
+/**
+ * Parses PWM data received from the vehicle. If the input does
+ * not match an expected format: emits a warning and returns an
+ * object whose attributes are marked invalid (See PwmData)
+ * Otherwise takes the parsed elements and returns their data
+ * in a new PwmData object
+ *
+ * @param input A string describing speed data to parse
+ * @return An invalid PwmData object if parsing failed, or a
+ * PwmData object with the current encoder positions
+ */
+PwmData CommsParser::parsePwmCommand(const std::string &input) {
+  auto seperateWords = splitCommands(input);
+
+  // Expected format is 5 pars where space and : are delims
+  // !s L_PWM:xxx R_PWM:xxx
+  const size_t expectedParts = 5;
+  if (seperateWords.size() != expectedParts) {
+    rosWarnWrapper("PWM input did not split correclty. Input was:\n" + input);
+    return {};
+  }
+
+  int leftPwmVal{0}, rightPwmVal{0};
+
+  // Position of the left and right vals
+  const size_t lCountPos = 2, rCountPos = 4;
+
+  try {
+    leftPwmVal = std::stoi(seperateWords[lCountPos]);
+    rightPwmVal = std::stoi(seperateWords[rCountPos]);
+  } catch (std::invalid_argument &e) {
+    rosWarnWrapper("Failed to convert encoder val which was:\n" + input +
+                   "\nException was: " + e.what());
+    return {};
+  }
+
+  return {leftPwmVal, rightPwmVal};
+}
+
 /*
  * Parses speed data received from the vehicle. If the input does
  * not match an expected format: emits a warning and returns an
@@ -182,7 +224,7 @@ EncoderData CommsParser::parseEncoderCommand(const std::string &input) {
  *
  * @param input A string describing speed data to parse
  * @return An invalid SpeedData object if parsing failed, or a
- * SpeedData object with the current encoder positions
+ * SpeedData object with the current speeds
  */
 SpeedData CommsParser::parseSpeedCommand(const std::string &input) {
   auto seperateWords = splitCommands(input);

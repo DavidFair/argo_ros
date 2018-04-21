@@ -6,10 +6,13 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include <atomic>
 #include <cstring>
+#include <mutex>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "ros/ros.h"
@@ -26,17 +29,23 @@ namespace {
  * @param serialControl The read termios structure which is modified in place
  */
 void getArduinoSerialFlags(termios &serialControl) {
-  // Options adapted from https://playground.arduino.cc/Interfacing/LinuxTTY
-  serialControl.c_cflag |= CRTSCTS;
-  serialControl.c_iflag |= (IGNBRK | BRKINT | IMAXBEL | IXON);
-  serialControl.c_oflag |= OPOST;
-  serialControl.c_lflag |= (ISIG | ICANON | IEXTEN | NOFLSH);
+  // Options adapted from
+  // https://github.com/todbot/arduino-serial/blob/master/arduino-serial-lib.c
+  serialControl.c_cflag &= ~PARENB;
+  serialControl.c_cflag &= ~CSTOPB;
+  serialControl.c_cflag &= ~CSIZE;
+  serialControl.c_cflag |= CS8;
+  // no flow control
+  serialControl.c_cflag &= ~CRTSCTS;
 
-  // Turn off echo
-  serialControl.c_lflag &= ~(ECHO | ECHOE | ECHOK | ECHONL);
-  serialControl.c_iflag &= ~ICRNL;
-  // Do not convert LF to CRLF
-  serialControl.c_oflag &= ~ONLCR;
+  serialControl.c_cflag &= ~HUPCL; // disable hang-up-on-close to avoid reset
+
+  serialControl.c_cflag |= CREAD | CLOCAL; // turn on READ & ignore ctrl lines
+  serialControl.c_iflag &= ~(IXON | IXOFF | IXANY); // turn off s/w flow ctrl
+
+  // serialControl.c_lflag |= ICANON;                 // Get whole lines only
+  serialControl.c_lflag &= ~(ICANON, ECHO | ECHOE | ISIG); // make raw
+  serialControl.c_oflag &= ~OPOST;                         // make raw
 }
 
 /*
@@ -88,6 +97,8 @@ void throwLinuxError(const std::string &cause) {
  * error is printed.
  */
 SerialComms::~SerialComms() {
+  m_keepRunning = false;
+
   if (!isValidPort) {
     return;
   }
@@ -111,13 +122,29 @@ SerialComms::~SerialComms() {
  * @return A vector of complete strings received from the device
  */
 std::vector<std::string> SerialComms::read() {
-  readToInternalBuffer();
-  const std::string currentBuffer = std::move(m_pendingReadBuffer);
+  m_readBufferMutex.lock();
+  auto lastNewline = m_pendingReadBuffer.find_last_of('\n');
+  m_readBufferMutex.unlock();
+
+  if (lastNewline == std::string::npos) {
+    // No newline char to send
+    return {};
+  }
+
+  m_readBufferMutex.lock();
+  const auto parsedString = m_pendingReadBuffer.substr(0, lastNewline);
+  m_pendingReadBuffer = m_pendingReadBuffer.substr(lastNewline + 1);
   m_pendingReadBuffer.clear();
+  m_readBufferMutex.unlock();
 
   // Split if there are multiple commands
   const char EOLToken = '\n';
-  const auto foundStrings = splitByToken(currentBuffer, EOLToken);
+  const auto foundStrings = splitByToken(parsedString, EOLToken);
+
+  for (const auto &inString : foundStrings) {
+    const std::string out{"Read in: " + inString};
+    ROS_DEBUG(out.c_str());
+  }
 
   return foundStrings;
 }
@@ -150,10 +177,6 @@ bool SerialComms::write(const std::vector<std::string> &strings) {
   const std::string out{"Writing to Arduino:\n" + toOutput};
   ROS_DEBUG(out.c_str());
 
-  // We have to always attempt to read before continuing in case the Arduino
-  // is sending to us first filling the buffer and deadlocking
-  readToInternalBuffer();
-
   int count = ::write(fileDescriptor, toOutput.c_str(), toOutput.size());
 
   if (count >= 0) {
@@ -185,9 +208,9 @@ bool SerialComms::write(const std::vector<std::string> &strings) {
  * @throws std::runtime_error If the port cannot be opened with the reason why
  */
 void SerialComms::openPort(const std::string &portAddress, const int baudRate) {
-  fileDescriptor = open(portAddress.c_str(), (O_RDWR | O_NOCTTY | O_NDELAY));
-  // Ensure that we are not in blocking mode on the syscall side either
-  fcntl(fileDescriptor, F_SETFL, FNDELAY);
+  fileDescriptor = open(portAddress.c_str(), (O_RDWR | O_NOCTTY));
+  // Sets the file descriptor to blocking mode
+  fcntl(fileDescriptor, F_SETFL, 0);
 
   if (fileDescriptor < 0) {
     // Failed to open port
@@ -200,11 +223,14 @@ void SerialComms::openPort(const std::string &portAddress, const int baudRate) {
 
   setSerialPortSettings(fileDescriptor, baudRate);
   isValidPort = true;
+
+  // Start a loop to read from the serial port
+  m_readThread = std::thread(&SerialComms::readToInternalBuffer, this);
 }
 
 /**
  * Sets port settings on the passed, opened file descriptor. These
- * settings include non-blocking mode, canonical mode, and various
+ * settings include blocking mode, raw mode, and various
  * serial terminal specific settings.
  * Throws an exception if the terminal attributes cannot be retrieved
  * or set.
@@ -258,27 +284,34 @@ void SerialComms::setSerialPortSettings(int fileDescriptor, int baudRate) {
  * where the buffer cannot write until its contents are read from
  * the device.
  *
- * This call is non-blocking.
+ * This function is intended to be called in a thread and will
+ * lock and unlock the mutex
+ *
  *
  * @throws std::runtime_error If any other error than EAGAIN
  * (meaning buffer empty) is returned with that error in the exception.
  */
 void SerialComms::readToInternalBuffer() {
   isSerialValid();
-
   const int BUF_SIZE = 256;
-  char buf[BUF_SIZE];
-  memset(buf, 0, BUF_SIZE);
-  int count = ::read(fileDescriptor, buf, BUF_SIZE);
 
-  if (count >= 0) {
-    m_pendingReadBuffer.append((buf));
-  }
+  while (m_keepRunning) {
+    char buf[BUF_SIZE];
+    memset(buf, 0, BUF_SIZE);
+    int count = ::read(fileDescriptor, buf, BUF_SIZE);
 
-  if (errno != EAGAIN) {
-    // Something went wrong
-    throwLinuxError("Failed to read from serial");
-  }
+    if (count > 0) {
+      m_readBufferMutex.lock();
+      m_pendingReadBuffer.append((buf));
+      m_readBufferMutex.unlock();
+    } else if (count < 0) {
+      if (errno != EAGAIN) {
+        // Something went wrong
+        throwLinuxError("Failed to read from serial");
+      }
+    }
+
+  } // End of loop
 }
 
 /**

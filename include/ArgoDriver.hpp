@@ -10,7 +10,7 @@
 #include "CommsParser.hpp"
 #include "Publisher.hpp"
 #include "SerialInterface.hpp"
-#include "Services.hpp"
+#include "Subscriber.hpp"
 
 /**
  * Implements the ROS node for controlling the Argo
@@ -53,9 +53,10 @@ private:
 
   // *Internal variables*
   /// The maximum allowed velocity of the vehicle
-  const int m_maxVelocity; // TODO
+  const int m_maxVelocity;
   /// The current speed the vehicle should be traveling at
   SpeedData m_previousSpeedData;
+
   /// The last time the speed command was issued
   std::chrono::time_point<std::chrono::steady_clock> m_lastSpeedCommandTime;
   /// The pending buffer to write to the serial port
@@ -66,6 +67,8 @@ private:
   const bool m_usePings;
   /// Tracks whether any comms have been heard yet
   bool m_commsHasBeenMade;
+  /// Tracks last ping status for useful message
+  bool m_lastPingStatus;
 
   /// The time that the last incoming ping was received
   std::chrono::time_point<std::chrono::steady_clock> m_lastIncomingPingTime;
@@ -75,8 +78,8 @@ private:
   Publisher m_publisher;
   /// An object which handles communications to the vehicle
   SerialInterface &m_serial;
-  /// An object which provides the nodes services
-  Services m_services;
+  /// An object which provides the nodes Subscriber
+  Subscriber m_subscriber;
 };
 
 #endif

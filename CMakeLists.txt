@@ -6,7 +6,7 @@ add_compile_options(-std=c++14)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wpedantic -Werror")
 
 # Dependencies from ROS we need
-set(ROS_DEPS roscpp std_msgs message_generation)
+set(ROS_DEPS roscpp std_msgs geometry_msgs message_generation)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -16,26 +16,19 @@ find_package(catkin REQUIRED COMPONENTS
 )
 
 ## System dependencies are found with CMake's conventions
-find_package(Boost REQUIRED COMPONENTS system)
+# find_package(Boost REQUIRED COMPONENTS system)
 
 ## Add message files used in publishing topics
 add_message_files(
   FILES
   CurrentOdom.msg
-  Speeds.msg
-)
-
-## Specify the service files required to provide a service interface
-add_service_files(
-  FILES
-  SetTargetOdom.srv
-  SetWheelSpeeds.srv
-  Stop.srv
+  Wheels.msg
 )
 
 ## Indicate to CMake we require the following external services
 generate_messages(
   DEPENDENCIES
+  geometry_msgs
   std_msgs
 )
 
@@ -73,7 +66,7 @@ add_library(${PROJECT_NAME}
    src/ArgoDriver.cpp
    src/CommsParser.cpp
    src/Publisher.cpp
-   src/Services.cpp
+   src/Subscriber.cpp
 )
 
 add_dependencies(${PROJECT_NAME} argo_driver_generate_messages_cpp)
@@ -151,7 +144,7 @@ catkin_add_gmock(${PROJECT_NAME}-test
   test/ArgoDriverTest.cpp
   test/CommsParserTest.cpp
   test/PublisherTest.cpp
-  test/ServicesTest.cpp)
+  test/SubscriberTest.cpp)
 
 if(TARGET ${PROJECT_NAME}-test)
    target_link_libraries(

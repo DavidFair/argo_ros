@@ -39,8 +39,9 @@ ArgoDriver::ArgoDriver(SerialInterface &commsObj, ros::NodeHandle &nodeHandle,
       m_previousSpeedData(0, 0),
       m_lastSpeedCommandTime(std::chrono::steady_clock::now()),
       m_usePings(useTimeouts), m_commsHasBeenMade(false),
+      m_lastPingStatus(true),
       m_lastIncomingPingTime(std::chrono::steady_clock::now()),
-      m_publisher(nodeHandle), m_serial(commsObj), m_services(nodeHandle) {}
+      m_publisher(nodeHandle), m_serial(commsObj), m_subscriber(nodeHandle) {}
 
 /**
  * Runs the main Argo node loop providing communications to and from
@@ -55,20 +56,29 @@ void ArgoDriver::loop(const ros::TimerEvent &event) {
 
   readFromArduino();
 
-  // If the ping is good set the new speed to the target otherwise 0
-  const auto newSpeed =
-      exchangePing() ? m_services.getTargetSpeed() : SpeedData(0, 0);
+  const auto pingIsGood = exchangePing();
 
-  updateTargetSpeed(std::move(newSpeed));
+  if (!pingIsGood) {
+    // We do not send anything in case we are in the Arduino bootloader
+    // where any comms causes it to hang
+    m_outputBuffer.clear();
+    m_lastPingStatus = false;
+    m_loopTimer.start();
+    return;
+  }
+
+  if (!m_lastPingStatus) {
+    ROS_INFO("Connection Re-established");
+    m_lastPingStatus = true;
+  }
+  // Always update target speed when ping is good
+  updateTargetSpeed(m_subscriber.getLastSpeedTarget());
 
   if (m_serial.write(m_outputBuffer)) {
     m_outputBuffer.clear();
   } else {
     ROS_WARN("Failed to write output buffer, trying again");
   }
-
-  // Start any pending timers if there are any
-  m_services.startTimers();
 
   if (ros::ok()) {
     m_loopTimer.start();
@@ -115,21 +125,22 @@ bool ArgoDriver::exchangePing() {
     return true;
   }
 
-  m_outputBuffer.push_back(CommsParser::getPingCommand());
-
   if (!m_commsHasBeenMade) {
     // And if we haven't heard anything yet wait for serial negotiation
     // to finish instead of spewing warnings
     ROS_INFO("Waiting for first comms to happen");
-    return true;
+    return false;
   }
+
+  m_outputBuffer.push_back(CommsParser::getPingCommand());
 
   // Check if we have exceeded the maximum ping time yet
   auto currentTime = std::chrono::steady_clock::now();
   auto duration = currentTime - m_lastIncomingPingTime;
   if (duration > TIMEOUT_DURATION) {
-    ROS_WARN("Arduino has not responded in timeout. Setting speeds to 0");
-    m_services.setTargetSpeed(SpeedData{0, 0});
+    ROS_WARN("Arduino has not responded in timeout. Waiting for it to "
+             "establish comms.");
+    m_subscriber.resetLastSpeedTarget();
     return false;
   }
   return true;
@@ -209,6 +220,11 @@ void ArgoDriver::parseCommand(CommandType type, const std::string &s) {
     m_lastIncomingPingTime = std::chrono::steady_clock::now();
     break;
   }
+  case CommandType::Pwm: {
+    auto pwmData = CommsParser::parsePwmCommand(s);
+    m_publisher.publishPwmValues(pwmData);
+    break;
+  }
   case CommandType::Speed: {
     auto speedData = CommsParser::parseSpeedCommand(s);
     m_publisher.publishCurrentSpeed(speedData);
@@ -251,8 +267,9 @@ void ArgoDriver::readFromArduino() {
  */
 void ArgoDriver::updateTargetSpeed(SpeedData currentSpeedTarget) {
   // Get our current target speed and send an update if required
-
   if (currentSpeedTarget == m_previousSpeedData) {
+    m_publisher.publishTargetSpeed(m_previousSpeedData);
+
     const auto timeSinceLastCommand =
         std::chrono::steady_clock::now() - m_lastSpeedCommandTime;
 
@@ -260,18 +277,16 @@ void ArgoDriver::updateTargetSpeed(SpeedData currentSpeedTarget) {
       // Reissue the command
       m_outputBuffer.push_back(
           CommsParser::getSpeedCommand(currentSpeedTarget));
-      m_publisher.publishTargetSpeed(m_previousSpeedData);
       m_lastSpeedCommandTime = std::chrono::steady_clock::now();
     }
     return;
   }
 
-  if (limitToMaxVelocity(currentSpeedTarget)) {
-    // Update with our constrained speed
-    m_services.setTargetSpeed(currentSpeedTarget);
-  }
+  limitToMaxVelocity(currentSpeedTarget);
 
-  m_previousSpeedData = std::move(currentSpeedTarget);
+  // Set our previous target to the new target for the next loop
+  m_previousSpeedData = currentSpeedTarget;
+
   m_publisher.publishTargetSpeed(currentSpeedTarget);
   m_outputBuffer.push_back(CommsParser::getSpeedCommand(currentSpeedTarget));
   m_lastSpeedCommandTime = std::chrono::steady_clock::now();

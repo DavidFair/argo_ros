@@ -10,99 +10,121 @@
 #include "CommsParser.hpp"
 #include "Publisher.hpp"
 #include "argo_driver/CurrentOdom.h"
+#include "argo_driver/Wheels.h"
 
 namespace {
 
-class odomSubscriber {
+const std::string nodePath = "ArgoPublisherTests";
+const std::string speedTopicName = "current_speed";
+const std::string encoderTopicName = "current_encoder";
+const std::string pwmTopicName = "current_pwm";
+
+template <typename msgT> class rosSubscriber {
 public:
-  odomSubscriber()
-      : m_handle("PublisherTest"),
-        m_subscriber(m_handle.subscribe("/PublisherTest/current_odom", 1,
-                                        &odomSubscriber::callback, this)) {}
+  rosSubscriber(ros::NodeHandle &node, const std::string &topicName)
+      : m_subscriber(node.subscribe(topicName, 1,
+                                    &rosSubscriber<msgT>::rosCallback, this)) {}
 
-  void callback(const argo_driver::CurrentOdom::ConstPtr &msg) {
-    callbackTriggered = true;
-    receivedMsg = msg;
-  }
+  msgT getLastMsg() const { return receivedMsg; }
 
-  bool callbackTriggered{false};
-  argo_driver::CurrentOdom::ConstPtr receivedMsg{};
-  ros::NodeHandle m_handle;
+  bool m_callbackTriggered{false};
 
 private:
+  void rosCallback(const msgT incomingMsg) {
+    m_callbackTriggered = true;
+    receivedMsg = incomingMsg;
+  }
+
   ros::Subscriber m_subscriber;
+  msgT receivedMsg;
 };
+
+void rosSpinAndSleep() {
+  using namespace std::chrono_literals;
+  for (int i = 0; i < 2; i++) {
+    std::this_thread::sleep_for(50ms);
+    ros::spinOnce();
+  }
+}
 
 } // Anonymous namespace
 
-TEST(PublishOdom, straightDrive) {
-  const double expectedDist = 10;
-  const int encoderCounts = expectedDist / g_DIST_PER_ENC_COUNT;
+TEST(Publisher, publishesCurrentSpeed) {
+  ros::NodeHandle handle(nodePath);
+  Publisher testInstance(handle);
 
-  EncoderData inputData{encoderCounts, encoderCounts};
-  odomSubscriber newSub;
+  const int targetLeftSpeed = 1000;  // millis per second
+  const int targetRightSpeed = 2000; // millis per second
 
-  Publisher testInstance(newSub.m_handle);
-  testInstance.publishCurrentOdometry(inputData);
+  SpeedData targetSpeeds{targetLeftSpeed, targetRightSpeed};
 
-  using namespace std::chrono_literals;
-  const int MAX_SPINS = 5;
-  int currentSpins = 0;
+  rosSubscriber<argo_driver::Wheels> subTester(handle, speedTopicName);
+  testInstance.publishCurrentSpeed(targetSpeeds);
 
-  while (!newSub.callbackTriggered && currentSpins < MAX_SPINS) {
-    std::this_thread::sleep_for(100ms);
-    ros::spinOnce();
-  }
+  rosSpinAndSleep();
+  ASSERT_TRUE(subTester.m_callbackTriggered);
 
-  ASSERT_TRUE(newSub.callbackTriggered);
-
-  const argo_driver::CurrentOdom &msg = *(newSub.receivedMsg.get());
-
-  const double tolerance = 0.01; // As the definition is only precise to 2DP
-  EXPECT_NEAR(msg.leftWheelTravelled, expectedDist, tolerance);
-  EXPECT_NEAR(msg.rightWheelTravelled, expectedDist, tolerance);
-
-  EXPECT_EQ(msg.headingDegrees, 0);
-  EXPECT_EQ(msg.headingRadians, 0);
-
-  EXPECT_NEAR(msg.xDistTravelled, expectedDist, tolerance);
-  EXPECT_NEAR(msg.yDistTravelled, 0, tolerance);
+  auto receivedMsg = subTester.getLastMsg();
+  EXPECT_EQ(targetLeftSpeed / MILLIS_PER_SEC, receivedMsg.leftWheel);
+  EXPECT_EQ(targetRightSpeed / MILLIS_PER_SEC, receivedMsg.rightWheel);
 }
 
-TEST(PublishOdom, onBearing) {
-  const double expectedAngle = M_PI_4; // Or 45 degrees
-  const double difference = expectedAngle * g_LENGTH_BETWEEN_WHEELS;
+TEST(Publisher, publishesEncoderCount) {
+  ros::NodeHandle handle(nodePath);
+  Publisher testInstance(handle);
 
-  const double expectedDist = 10; // meters
+  const int leftEncCount = 123;
+  const int rightEncCount = 234;
 
-  const int leftEncCount = (expectedDist + difference) / g_DIST_PER_ENC_COUNT;
-  const int rightEncCount = expectedDist / g_DIST_PER_ENC_COUNT;
+  rosSubscriber<argo_driver::Wheels> callback(handle, encoderTopicName);
 
-  EncoderData inputData{leftEncCount, rightEncCount};
+  EncoderData data{leftEncCount, rightEncCount};
+  testInstance.publishEncoderCount(data);
 
-  odomSubscriber newSub;
-  Publisher testInstance(newSub.m_handle);
-  testInstance.publishCurrentOdometry(inputData);
+  rosSpinAndSleep();
+  ASSERT_TRUE(callback.m_callbackTriggered);
 
-  using namespace std::chrono_literals;
-  const int MAX_SPINS = 5;
-  int currentSpins = 0;
+  auto receivedMsg = callback.getLastMsg();
+  EXPECT_EQ(leftEncCount, receivedMsg.leftWheel);
+  EXPECT_EQ(rightEncCount, receivedMsg.rightWheel);
+}
 
-  while (!newSub.callbackTriggered && currentSpins < MAX_SPINS) {
-    std::this_thread::sleep_for(100ms);
-    ros::spinOnce();
-  }
+TEST(Publisher, publishesPwmValues) {
+  ros::NodeHandle handle(nodePath);
+  Publisher testInstance(handle);
 
-  ASSERT_TRUE(newSub.callbackTriggered);
+  const int leftPwmVal = 100;
+  const int rightPwmVal = 200;
 
-  const argo_driver::CurrentOdom &msg = *(newSub.receivedMsg.get());
+  rosSubscriber<argo_driver::Wheels> callback(handle, pwmTopicName);
 
-  const double tolerance = 0.01; // As the definition is only precise to 2DP
-  EXPECT_NEAR(msg.leftWheelTravelled, (expectedDist + difference), tolerance);
-  EXPECT_NEAR(msg.rightWheelTravelled, expectedDist, tolerance);
+  PwmData data{leftPwmVal, rightPwmVal};
+  testInstance.publishPwmValues(data);
 
-  EXPECT_EQ(msg.headingDegrees, 45);
-  EXPECT_NEAR(msg.headingRadians, M_PI_4, 0.001); // 3DP for radians
+  rosSpinAndSleep();
+  ASSERT_TRUE(callback.m_callbackTriggered);
 
-  EXPECT_NEAR(msg.xDistTravelled, msg.yDistTravelled, tolerance);
+  auto receivedMsg = callback.getLastMsg();
+  EXPECT_EQ(leftPwmVal, receivedMsg.leftWheel);
+  EXPECT_EQ(rightPwmVal, receivedMsg.rightWheel);
+}
+
+TEST(Publisher, publishesTargetSpeed) {
+  ros::NodeHandle handle(nodePath);
+  Publisher testInstance(handle);
+
+  const int targetLeftSpeed = 2000;  // millis per second
+  const int targetRightSpeed = 4000; // millis per second
+
+  SpeedData targetSpeeds{targetLeftSpeed, targetRightSpeed};
+
+  rosSubscriber<argo_driver::Wheels> subTester(handle, speedTopicName);
+  testInstance.publishCurrentSpeed(targetSpeeds);
+
+  rosSpinAndSleep();
+  ASSERT_TRUE(subTester.m_callbackTriggered);
+
+  auto receivedMsg = subTester.getLastMsg();
+  EXPECT_EQ(targetLeftSpeed / MILLIS_PER_SEC, receivedMsg.leftWheel);
+  EXPECT_EQ(targetRightSpeed / MILLIS_PER_SEC, receivedMsg.rightWheel);
 }

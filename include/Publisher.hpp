@@ -3,7 +3,10 @@
 
 #include "ros/ros.h"
 
-#include "CommsParser.hpp"
+// Forward declerations
+struct EncoderData;
+struct PwmData;
+struct SpeedData;
 
 class Publisher {
 public:
@@ -19,8 +22,12 @@ public:
   /// Publishes the current encoder count on the vehicle
   void publishEncoderCount(const EncoderData &data);
 
+  /// Publishes the current PWM values on the vehicle
+  void publishPwmValues(const PwmData &data);
+
   /// Publishes the target vehicle speed
   void publishTargetSpeed(const SpeedData &data);
+
 private:
   /// A handle to publish the vehicles current speed
   ros::Publisher m_currentSpeedPub;
@@ -31,11 +38,11 @@ private:
   /// A handle to publish the current odometry
   ros::Publisher m_odomPub;
 
-  /// A handle to publish the current left encoder count
-  ros::Publisher m_leftEncoderPub;
+  /// A handle to publish the current PWM values
+  ros::Publisher m_pwmPub;
 
-  /// A handle to publish the current right encoder count
-  ros::Publisher m_rightEncoderPub;
+  /// A handle to publish the current encoder counts
+  ros::Publisher m_encoderPub;
 };
 
 #endif // PUBLISHER_HPP_
