@@ -258,8 +258,8 @@ SpeedData CommsParser::parseSpeedCommand(const std::string &input) {
 // ----------------
 /**
  * Splits multiple commands given in an input strings by the expected
- * delimeter '\n'. These are returned as a vector of strings representing
- * all found commands.
+ * delimeter '\n' or : for a K-V pair. These are returned as a vector of
+ * strings representing all found commands.
  *
  * @param s The string to split into multiple command strings
  * @return A vector of strings representing all found command strings
