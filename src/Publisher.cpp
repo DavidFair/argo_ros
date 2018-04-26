@@ -3,12 +3,13 @@
 #include <utility>
 
 #include "ros/ros.h"
+#include "tf/transform_datatypes.h"
 
 #include "ArgoGlobals.hpp"
 #include "CommsParser.hpp"
 #include "Publisher.hpp"
-#include "argo_driver/CurrentOdom.h"
 #include "argo_driver/Wheels.h"
+#include "nav_msgs/Odometry.h"
 
 namespace {
 // Only allow the last 10 messages to queue before they get stale
@@ -17,17 +18,11 @@ const size_t TOPIC_QUEUE = 10;
 // Topic Names:
 
 const std::string TARGET_SPEED{"target_speed"};
+const std::string ODOM_TOPIC_NAME{"odom"};
 
 const std::string ENC_TOPIC_NAME{"current_encoder"};
 const std::string CURRENT_SPEED{"current_speed"};
-const std::string ODOM_TOPIC_NAME{"current_odom"};
 const std::string PWM_TOPIC_NAME{"current_pwm"};
-
-/// Converts radians to degrees
-double convertRadiansToDegrees(double radians) {
-  return radians * (180 / M_PI);
-}
-
 } // namespace
 
 /**
@@ -45,7 +40,7 @@ Publisher::Publisher(ros::NodeHandle &handle)
       handle.advertise<argo_driver::Wheels>(TARGET_SPEED, TOPIC_QUEUE);
 
   m_odomPub =
-      handle.advertise<argo_driver::CurrentOdom>(ODOM_TOPIC_NAME, TOPIC_QUEUE);
+      handle.advertise<nav_msgs::Odometry>(ODOM_TOPIC_NAME, TOPIC_QUEUE);
 
   m_pwmPub = handle.advertise<argo_driver::Wheels>(PWM_TOPIC_NAME, TOPIC_QUEUE);
 
@@ -78,18 +73,19 @@ void Publisher::publishCurrentSpeed(const SpeedData &data) {
  *
  * @param data The encoder data to calculate the attributes from
  */
-void Publisher::publishCurrentOdometry(const EncoderData &data) {
-  if (!data.isValid) {
+void Publisher::publishCurrentOdometry(const EncoderData &encoder,
+                                       const SpeedData &speed) {
+  if (!encoder.isValid || !speed.isValid) {
     return;
   }
 
-  const double leftWheelDistance = data.leftWheel * g_DIST_PER_ENC_COUNT;
-  const double rightWheelDistance = data.rightWheel * g_DIST_PER_ENC_COUNT;
+  const double leftWheelDistance = encoder.leftWheel * g_DIST_PER_ENC_COUNT;
+  const double rightWheelDistance = encoder.rightWheel * g_DIST_PER_ENC_COUNT;
   const double difference = leftWheelDistance - rightWheelDistance;
 
   // In radians
   double currentHeading = difference / g_LENGTH_BETWEEN_WHEELS;
-  if (currentHeading >= 2 * M_PI) {
+  if (currentHeading >= 2 * M_PI || currentHeading <= 2 * M_PI) {
     // Normalise to within 2PI (or 360 deg)
     currentHeading = fmod(currentHeading, 2 * M_PI);
   }
@@ -99,16 +95,32 @@ void Publisher::publishCurrentOdometry(const EncoderData &data) {
   const double xDist = baseDistTravelled * cos(currentHeading);
   const double yDist = baseDistTravelled * sin(currentHeading);
 
-  argo_driver::CurrentOdom msg;
+  // ------- Adapted from example at -------
+  // http://wiki.ros.org/navigation/Tutorials/RobotSetup/Odom#Publishing_Odometry_Information_Over_ROS
+  geometry_msgs::Quaternion quaternion =
+      tf::createQuaternionMsgFromYaw(currentHeading);
 
-  msg.headingDegrees = convertRadiansToDegrees(currentHeading);
-  msg.headingRadians = currentHeading;
-  msg.leftWheelTravelled = leftWheelDistance;
-  msg.rightWheelTravelled = rightWheelDistance;
-  msg.xDistTravelled = xDist;
-  msg.yDistTravelled = yDist;
+  nav_msgs::Odometry odomMsg;
+  odomMsg.header.stamp = ros::Time::now();
+  odomMsg.header.frame_id = "odom";
 
-  m_odomPub.publish(std::move(msg));
+  odomMsg.pose.pose.position.x = xDist;
+  odomMsg.pose.pose.position.y = yDist;
+  odomMsg.pose.pose.position.z = 0.;
+  odomMsg.pose.pose.orientation = quaternion;
+
+  // Take speed closest to 0 as base speed
+  const int baseSpeed = std::abs(speed.leftWheel) < std::abs(speed.rightWheel)
+                            ? speed.leftWheel
+                            : speed.rightWheel;
+  const int velDiff = speed.leftWheel - speed.rightWheel;
+
+  odomMsg.twist.twist.linear.x = baseSpeed / (double)METERS_TO_MILLIS;
+  odomMsg.twist.twist.linear.y = 0.; // Argo cannot translate through Y
+  odomMsg.twist.twist.angular.z = velDiff / (double)METERS_TO_MILLIS;
+
+  // ---------------------
+  m_odomPub.publish(std::move(odomMsg));
 }
 
 /**

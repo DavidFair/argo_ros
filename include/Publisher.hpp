@@ -17,7 +17,8 @@ public:
   void publishCurrentSpeed(const SpeedData &data);
 
   /// Publishes the current vehicle odometry
-  void publishCurrentOdometry(const EncoderData &data);
+  void publishCurrentOdometry(const EncoderData &encoder,
+                              const SpeedData &speed);
 
   /// Publishes the current encoder count on the vehicle
   void publishEncoderCount(const EncoderData &data);
