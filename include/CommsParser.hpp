@@ -1,6 +1,7 @@
 #ifndef COMMS_PARSER_HPP_
 #define COMMS_PARSER_HPP_
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -48,8 +49,6 @@ inline bool operator==(const SpeedData &a, const SpeedData &b) {
 /// A non-instantiatable class which provides static parsing methods
 class CommsParser {
 public:
-  /// Returns a string containing the deadman command
-  static std::string getDeadmanCommand();
   /// Returns a string containing the speed command
   static std::string getSpeedCommand(const SpeedData &data);
   /// Returns a string containing the ping command
@@ -67,8 +66,22 @@ public:
 private:
   /// Deleted constructor to ensure the class is non-instantiatable
   CommsParser() = delete;
+
+  /// Appends the checksum value to the input string
+  static void appendChecksumValue(std::string &target);
+
+  /// Calculates a checksum value based on the contents of a string between two
+  /// iterators
+  static uint8_t calculateChecksumValue(std::string::const_iterator begin,
+                                        std::string::const_iterator end);
+
+  /// Checks the validity of a checksum on the incoming command
+  static bool checkChecksumValue(const std::string &incomingCommand);
+
   /// Provides the logic to determine the command type. (See CommandType)
   static CommandType determineCommandType(const std::string &input);
+  /// Add checksum to command
+
   /// Splits an incoming string containing n commands into seperate strings
   static std::vector<std::string> splitCommands(const std::string &s);
 };

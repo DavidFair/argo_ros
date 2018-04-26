@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <sstream>
 #include <string>
 
@@ -6,7 +7,7 @@
 #include "CommsParser.hpp"
 
 namespace {
-
+const std::string CHECKSUM_PREFIX = " chk:";
 const std::string ENC_PREFIX = "!e";
 const std::string FATAL_PREFIX = "!f";
 const std::string SPEED_PREFIX = "!s";
@@ -45,14 +46,7 @@ void rosWarnWrapper(const std::string &s) { ROS_WARN(s.c_str()); }
 
 } // End of anonymous namespace
 
-/*
- * Returns a string containing a deadman command
- * @return A string containing a deadman command
- */
-std::string CommsParser::getDeadmanCommand() {
-  // !D is the command to enter deadman mode
-  return {"!D\n"};
-}
+// ---- Public methods ----
 
 /*
  * Returns a string containing a ping command
@@ -75,8 +69,12 @@ std::string CommsParser::getSpeedCommand(const SpeedData &data) {
   std::ostringstream command;
   command << "!T "
           << "L_SPEED:" << data.leftWheel << ' '
-          << "R_SPEED:" << data.rightWheel << '\n';
-  return command.str();
+          << "R_SPEED:" << data.rightWheel;
+
+  std::string commandStr = command.str();
+  appendChecksumValue(commandStr);
+  commandStr.append("\n");
+  return commandStr;
 }
 
 /*
@@ -104,36 +102,6 @@ CommandType CommsParser::parseIncomingBuffer(const std::string &received) {
   }
 
   return determineCommandType(trimmedString);
-} // End of anonymous namespace
-
-// Private methods
-
-/*
- * Determines the current strings command type. This function
- * expects that any strings which do not start with a command
- * prefix are not passed. Therefore if an unknown command is known
- * a warning is emitted to ROS with the received string.
- *
- * @param input The string to determine the command type of
- * @return The command type of the given string
- */
-CommandType CommsParser::determineCommandType(const std::string &input) {
-  if (input.find(ENC_PREFIX) != std::string::npos) {
-    return CommandType::Encoder;
-  } else if (input.find(FATAL_PREFIX) != std::string::npos) {
-    return CommandType::Fatal;
-  } else if (input.find(PING_PREFIX) != std::string::npos) {
-    return CommandType::Ping;
-  } else if (input.find(PWM_PREFIX) != std::string::npos) {
-    return CommandType::Pwm;
-  } else if (input.find(SPEED_PREFIX) != std::string::npos) {
-    return CommandType::Speed;
-  } else if (input.find(WARN_PREFIX) != std::string::npos) {
-    return CommandType::Warning;
-  }
-
-  rosWarnWrapper("The following command is unknown:\n" + input);
-  return CommandType::None;
 }
 
 /*
@@ -148,11 +116,15 @@ CommandType CommsParser::determineCommandType(const std::string &input) {
  * EncoderDataobject with the current encoder positions
  */
 EncoderData CommsParser::parseEncoderCommand(const std::string &input) {
+  if (!checkChecksumValue(input)) {
+    return {};
+  }
+
   auto seperateWords = splitCommands(input);
 
-  // Expected format is 5 parts where space and : are delims
-  // !e L_ENC:XXXX R_ENC:XXXX
-  const size_t expectedParts = 5;
+  // Expected format is 7 parts where space and : are delims
+  // !e L_ENC:XXXX R_ENC:XXXX chk:XXX
+  const size_t expectedParts = 7;
   if (seperateWords.size() != expectedParts) {
     rosWarnWrapper("Encoder data input did not split correclty. Input was:\n" +
                    input);
@@ -188,11 +160,15 @@ EncoderData CommsParser::parseEncoderCommand(const std::string &input) {
  * PwmData object with the current encoder positions
  */
 PwmData CommsParser::parsePwmCommand(const std::string &input) {
+  if (!checkChecksumValue(input)) {
+    return {};
+  }
+
   auto seperateWords = splitCommands(input);
 
-  // Expected format is 5 pars where space and : are delims
-  // !s L_PWM:xxx R_PWM:xxx
-  const size_t expectedParts = 5;
+  // Expected format is 7 pars where space and : are delims
+  // !s L_PWM:xxx R_PWM:xxx chk:xxx
+  const size_t expectedParts = 7;
   if (seperateWords.size() != expectedParts) {
     rosWarnWrapper("PWM input did not split correclty. Input was:\n" + input);
     return {};
@@ -227,11 +203,15 @@ PwmData CommsParser::parsePwmCommand(const std::string &input) {
  * SpeedData object with the current speeds
  */
 SpeedData CommsParser::parseSpeedCommand(const std::string &input) {
+  if (!checkChecksumValue(input)) {
+    return {};
+  }
+
   auto seperateWords = splitCommands(input);
 
-  // Expected format is 5 parts where space and : are delims
-  // !s L_SPEED:XXXX R_SPEED:XXXX
-  const size_t expectedParts = 5;
+  // Expected format is 7 parts where space and : are delims
+  // !s L_SPEED:XXXX R_SPEED:XXXX chk:XXX
+  const size_t expectedParts = 7;
   if (seperateWords.size() != expectedParts) {
     rosWarnWrapper("Speed input did not split correclty. Input was:\n" + input);
     return {};
@@ -252,6 +232,122 @@ SpeedData CommsParser::parseSpeedCommand(const std::string &input) {
   }
 
   return {leftWheelSpeed, rightWheelSpeed};
+}
+
+// ---- Private methods -----
+/**
+ * Appends a checksum value to a given string command
+ * which is calculated based on the contents of the passed
+ * string. The caller does not need to add a space before
+ * the checksum.
+ *
+ * @param target The string to checksum and append the value to
+ */
+void CommsParser::appendChecksumValue(std::string &target) {
+  // This includes everything up to but not including the space before chk
+  uint8_t calculatedChecksum =
+      calculateChecksumValue(target.cbegin(), target.cend());
+  target.append(CHECKSUM_PREFIX).append(std::to_string(calculatedChecksum));
+}
+
+/**
+ * Calculates a checksum value for a string between a pair of
+ * constant iterators. This includes all characters up to, but
+ * not including the end iterator position.
+ *
+ * @param begin The first character iterator to checksum
+ * @param end The iter after the final character to checksum
+ * @return Checksum value
+ */
+uint8_t CommsParser::calculateChecksumValue(std::string::const_iterator begin,
+                                            std::string::const_iterator end) {
+  // This MUST be unsigned integer as signed overflow in UB
+  uint8_t sum = 0;
+  for (; begin != end; begin++) {
+    // Dereference iterator and sum raw ASCII value in
+    sum += (int)*begin;
+  }
+  return sum;
+}
+
+/**
+ * Checks the incoming command against the checksum contained within
+ * if they match true is returned. Otherwise a ROS warning specific
+ * to the problem is emitted and false is returned
+ *
+ * @param incomingCommand The command to check the checksum of
+ * @return True if checksum matches content, otherwise false
+ */
+bool CommsParser::checkChecksumValue(const std::string &incomingCommand) {
+  const auto checksumPosition = incomingCommand.rfind(CHECKSUM_PREFIX);
+  if (checksumPosition == std::string::npos) {
+    rosWarnWrapper("Checksum was not found in the incoming message:\n" +
+                   incomingCommand);
+    return false;
+  }
+
+  const auto checksumIter = incomingCommand.cbegin() + checksumPosition;
+
+  // Construct a sub-string - if this was C++-17 we could use string view
+  std::string checksumValue{checksumIter, incomingCommand.end()};
+  auto foundCommands = splitCommands(checksumValue);
+
+  const size_t expectedParts = 2; // Should get 'chk' and val 'ddd'
+
+  if (foundCommands.size() != expectedParts) {
+    rosWarnWrapper("Checksum did not have all expected parts in message:\n" +
+                   incomingCommand);
+  }
+
+  const size_t checksumValPos = 1; // Second position in buffer
+  uint8_t foundChecksum = 0;
+
+  try {
+    foundChecksum = std::stoi(foundCommands[checksumValPos]);
+  } catch (std::invalid_argument &e) {
+    rosWarnWrapper("Failed to convert checksum val which was:\n" +
+                   incomingCommand + "\nException was: " + e.what());
+    return false;
+  }
+
+  uint8_t calculatedChecksum =
+      calculateChecksumValue(incomingCommand.begin(), checksumIter);
+  if (foundChecksum != calculatedChecksum) {
+    rosWarnWrapper("Checksums did not match in the message:\n" +
+                   incomingCommand);
+    return false;
+  }
+
+  // All verified by this point
+  return true;
+}
+
+/*
+ * Determines the current strings command type. This function
+ * expects that any strings which do not start with a command
+ * prefix are not passed. Therefore if an unknown command is known
+ * a warning is emitted to ROS with the received string.
+ *
+ * @param input The string to determine the command type of
+ * @return The command type of the given string
+ */
+CommandType CommsParser::determineCommandType(const std::string &input) {
+  if (input.find(ENC_PREFIX) != std::string::npos) {
+    return CommandType::Encoder;
+  } else if (input.find(FATAL_PREFIX) != std::string::npos) {
+    return CommandType::Fatal;
+  } else if (input.find(PING_PREFIX) != std::string::npos) {
+    return CommandType::Ping;
+  } else if (input.find(PWM_PREFIX) != std::string::npos) {
+    return CommandType::Pwm;
+  } else if (input.find(SPEED_PREFIX) != std::string::npos) {
+    return CommandType::Speed;
+  } else if (input.find(WARN_PREFIX) != std::string::npos) {
+    return CommandType::Warning;
+  }
+
+  rosWarnWrapper("The following command is unknown:\n" + input);
+  return CommandType::None;
 }
 
 // Adapted from https://stackoverflow.com/a/7621814
