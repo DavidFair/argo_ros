@@ -43,6 +43,8 @@ ArgoDriver::ArgoDriver(SerialInterface &commsObj, ros::NodeHandle &nodeHandle,
       m_lastIncomingPingTime(std::chrono::steady_clock::now()),
       m_publisher(nodeHandle), m_serial(commsObj), m_subscriber(nodeHandle) {}
 
+ArgoDriver::~ArgoDriver() { m_loopTimer.stop(); }
+
 /**
  * Runs the main Argo node loop providing communications to and from
  * ROS to the vehicle. It will continue to run until either a shutdown

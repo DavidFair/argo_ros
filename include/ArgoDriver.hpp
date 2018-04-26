@@ -21,6 +21,8 @@ public:
   ArgoDriver(SerialInterface &commsObj, ros::NodeHandle &nodeHandle,
              bool timeoutEnabled = true);
 
+  ~ArgoDriver();
+
   /// The main loop that is executed by the ROS node
   void loop(const ros::TimerEvent &);
 
