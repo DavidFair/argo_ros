@@ -6,7 +6,7 @@ add_compile_options(-std=c++14)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wpedantic -Werror")
 
 # Dependencies from ROS we need
-set(ROS_DEPS roscpp std_msgs geometry_msgs message_generation)
+set(ROS_DEPS roscpp tf std_msgs geometry_msgs nav_msgs message_generation)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)

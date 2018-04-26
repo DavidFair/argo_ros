@@ -97,7 +97,9 @@ void throwLinuxError(const std::string &cause) {
  * error is printed.
  */
 SerialComms::~SerialComms() {
+  // Kill the currently running thread
   m_keepRunning = false;
+  m_readThread.join();
 
   if (!isValidPort) {
     return;

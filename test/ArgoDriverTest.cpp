@@ -1,7 +1,7 @@
 #include <atomic>
 #include <chrono>
-#include <thread>
 #include <gmock/gmock.h>
+#include <thread>
 
 #include "ros/ros.h"
 #include "std_msgs/Int16.h"
@@ -20,15 +20,13 @@ using ::testing::StrictMock;
 using ::testing::Test;
 using ::testing::_;
 
-namespace
-{
+namespace {
 using namespace std::chrono_literals;
 const std::string HANDLE_PATH{"argo_driver_test"};
 const auto TIMEOUT = 500ms + 1ms;
 
 const bool disablePings = false;
-class ArgoDriverFixture : public ::testing::Test
-{
+class ArgoDriverFixture : public ::testing::Test {
 protected:
   ArgoDriverFixture()
       : handle(HANDLE_PATH), mockComms(),
@@ -42,14 +40,12 @@ protected:
 
 } // End of anonymous namespace
 
-TEST_F(ArgoDriverFixture, setupOpensSerial)
-{
+TEST_F(ArgoDriverFixture, setupOpensSerial) {
   EXPECT_CALL(mockComms, openPort(_, _)).Times(1);
   testInstance.setup();
 }
 
-TEST_F(ArgoDriverFixture, loopCallsReadOnce)
-{
+TEST_F(ArgoDriverFixture, loopCallsReadOnce) {
   const std::vector<std::string> emptyString;
   EXPECT_CALL(mockComms, read()).WillOnce(Return(emptyString));
 
@@ -57,8 +53,7 @@ TEST_F(ArgoDriverFixture, loopCallsReadOnce)
   testInstance.loop(fakeEvent);
 }
 
-TEST_F(ArgoDriverFixture, newSpeedIsWrittenToSerial)
-{
+TEST_F(ArgoDriverFixture, newSpeedIsWrittenToSerial) {
   const std::string targetService = {"cmd_wheel_speeds"};
 
   const int MAX_TOPIC_LEN = 1;
@@ -72,9 +67,8 @@ TEST_F(ArgoDriverFixture, newSpeedIsWrittenToSerial)
 
   speedClient.publish(msg);
 
-  for (int i = 0; i < 5; i++)
-  {
-    std::this_thread::sleep_for(50ms);
+  for (int i = 0; i < 5; i++) {
+    std::this_thread::sleep_for(100ms);
     ros::spinOnce();
   }
 
@@ -84,8 +78,7 @@ TEST_F(ArgoDriverFixture, newSpeedIsWrittenToSerial)
   testInstance.loop(ros::TimerEvent{});
 }
 
-TEST(ArgoDriverTimeout, NothingIsSentAfterTimeout)
-{
+TEST(ArgoDriverTimeout, NothingIsSentAfterTimeout) {
   ros::NodeHandle handle(HANDLE_PATH);
   StrictMock<SerialCommsMock> mockComms;
   const bool usePingTimeout = true;
@@ -96,8 +89,7 @@ TEST(ArgoDriverTimeout, NothingIsSentAfterTimeout)
   testInstance.loop(ros::TimerEvent{});
 }
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
   ros::init(argc, argv, "argo_driver_tests");
   testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
