@@ -31,7 +31,7 @@ before_install:
   # Build ROS version we want
   - mkdir -p ~/ros_catkin_ws
   - cd ~/ros_catkin_ws
-  - rosinstall_generator common_msgs ros_comm --rosdistro kinetic --deps --wet-only --tar > kinetic-ros_comm-wet.rosinstall
+  - rosinstall_generator common_msgs tf ros_comm --rosdistro kinetic --deps --wet-only --tar > kinetic-ros_comm-wet.rosinstall
   # Only do init if the folder has not cloned from cache
   - if [ ! -d "src" ]; then wstool init -j8 src kinetic-ros_comm-wet.rosinstall; fi
   - wstool update -t src

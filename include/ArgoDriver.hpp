@@ -56,8 +56,10 @@ private:
   // *Internal variables*
   /// The maximum allowed velocity of the vehicle
   const int m_maxVelocity;
-  /// The current speed the vehicle should be traveling at
-  SpeedData m_previousSpeedData;
+  /// The previous target speed sent to the vehicle
+  SpeedData m_previousSpeedTarget;
+  /// The speed the vehicle should be traveling at
+  SpeedData m_currentVehicleSpeed{};
 
   /// The last time the speed command was issued
   std::chrono::time_point<std::chrono::steady_clock> m_lastSpeedCommandTime;

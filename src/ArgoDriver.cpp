@@ -36,7 +36,7 @@ ArgoDriver::ArgoDriver(SerialInterface &commsObj, ros::NodeHandle &nodeHandle,
     : m_node(nodeHandle),
       m_maxVelocity(nodeHandle.param<double>("maxVelocity", DEFAULT_MAX_VEL) *
                     METERS_TO_MILLIS),
-      m_previousSpeedData(0, 0),
+      m_previousSpeedTarget(0, 0),
       m_lastSpeedCommandTime(std::chrono::steady_clock::now()),
       m_usePings(useTimeouts), m_commsHasBeenMade(false),
       m_lastPingStatus(true),
@@ -207,7 +207,7 @@ void ArgoDriver::parseCommand(CommandType type, const std::string &s) {
     return;
   case CommandType::Encoder: {
     auto encoderData = CommsParser::parseEncoderCommand(s);
-    m_publisher.publishCurrentOdometry(encoderData);
+    m_publisher.publishCurrentOdometry(encoderData, m_currentVehicleSpeed);
     m_publisher.publishEncoderCount(encoderData);
     break;
   }
@@ -230,6 +230,7 @@ void ArgoDriver::parseCommand(CommandType type, const std::string &s) {
   case CommandType::Speed: {
     auto speedData = CommsParser::parseSpeedCommand(s);
     m_publisher.publishCurrentSpeed(speedData);
+    m_currentVehicleSpeed = speedData;
     break;
   }
   case CommandType::Warning: {
@@ -269,8 +270,8 @@ void ArgoDriver::readFromArduino() {
  */
 void ArgoDriver::updateTargetSpeed(SpeedData currentSpeedTarget) {
   // Get our current target speed and send an update if required
-  if (currentSpeedTarget == m_previousSpeedData) {
-    m_publisher.publishTargetSpeed(m_previousSpeedData);
+  if (currentSpeedTarget == m_previousSpeedTarget) {
+    m_publisher.publishTargetSpeed(m_previousSpeedTarget);
 
     const auto timeSinceLastCommand =
         std::chrono::steady_clock::now() - m_lastSpeedCommandTime;
@@ -287,7 +288,7 @@ void ArgoDriver::updateTargetSpeed(SpeedData currentSpeedTarget) {
   limitToMaxVelocity(currentSpeedTarget);
 
   // Set our previous target to the new target for the next loop
-  m_previousSpeedData = currentSpeedTarget;
+  m_previousSpeedTarget = currentSpeedTarget;
 
   m_publisher.publishTargetSpeed(currentSpeedTarget);
   m_outputBuffer.push_back(CommsParser::getSpeedCommand(currentSpeedTarget));
