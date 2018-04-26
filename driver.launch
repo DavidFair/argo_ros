@@ -1,0 +1,7 @@
+<launch>
+    <param name="maxVelocity" value="3" type="double" />
+    <param name="ttyPort" value="/dev/ttyACM0"/>
+    <param name="baudRate" value="115200" type="int"/>
+
+    <node name="argo_driver" pkg="argo_driver" type="argo_driver_node"/>
+</launch>
