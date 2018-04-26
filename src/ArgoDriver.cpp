@@ -43,14 +43,7 @@ ArgoDriver::ArgoDriver(SerialInterface &commsObj, ros::NodeHandle &nodeHandle,
       m_lastIncomingPingTime(std::chrono::steady_clock::now()),
       m_publisher(nodeHandle), m_serial(commsObj), m_subscriber(nodeHandle) {}
 
-ArgoDriver::~ArgoDriver() {
-  m_loopTimer.stop();
-
-  // Try to send a last 0 speed signal to the Argo
-  m_outputBuffer.clear();
-  updateTargetSpeed(SpeedData{0, 0});
-  m_serial.write(m_outputBuffer);
-}
+ArgoDriver::~ArgoDriver() { m_loopTimer.stop(); }
 
 /**
  * Runs the main Argo node loop providing communications to and from
