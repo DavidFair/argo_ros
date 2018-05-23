@@ -33,7 +33,7 @@ const std::string PWM_TOPIC_NAME{"current_pwm"};
  */
 Publisher::Publisher(ros::NodeHandle &handle)
     : m_currentSpeedPub(), m_targetSpeedPub(), m_odomPub(), m_pwmPub(),
-      m_encoderPub() {
+      m_encoderPub(), m_tfPub() {
   m_currentSpeedPub =
       handle.advertise<argo_driver::Wheels>(CURRENT_SPEED, TOPIC_QUEUE);
   m_targetSpeedPub =
@@ -79,33 +79,65 @@ void Publisher::publishCurrentOdometry(const EncoderData &encoder,
     return;
   }
 
-  const double leftWheelDistance = encoder.leftWheel * g_DIST_PER_ENC_COUNT;
-  const double rightWheelDistance = encoder.rightWheel * g_DIST_PER_ENC_COUNT;
-  const double difference = leftWheelDistance - rightWheelDistance;
+  if ((m_previousLeftEncCount == 0) && (m_previousRightEncCount == 0)) {
+    // Preset the current encoder count to calculate relative to node
+    // starting point, instead of when the Arduino was last reset
+    m_previousLeftEncCount = encoder.leftWheel;
+    m_previousRightEncCount = encoder.rightWheel;
+    return;
+  }
+
+  const int leftEncDiff = encoder.leftWheel - m_previousLeftEncCount;
+  const int rightEncDiff = encoder.rightWheel - m_previousRightEncCount;
+
+  m_previousLeftEncCount = encoder.leftWheel;
+  m_previousRightEncCount = encoder.rightWheel;
+
+  const double leftWheelDistance = leftEncDiff * g_DIST_PER_ENC_COUNT;
+  const double rightWheelDistance = rightEncDiff * g_DIST_PER_ENC_COUNT;
+  const double difference = rightWheelDistance - leftWheelDistance;
 
   // In radians
-  double currentHeading = difference / g_LENGTH_BETWEEN_WHEELS;
-  if (currentHeading >= 2 * M_PI || currentHeading <= 2 * M_PI) {
+  const double headingChange = difference / g_LENGTH_BETWEEN_WHEELS;
+  m_currentHeading += headingChange;
+  if (m_currentHeading >= 2 * M_PI || m_currentHeading <= 2 * M_PI) {
     // Normalise to within 2PI (or 360 deg)
-    currentHeading = fmod(currentHeading, 2 * M_PI);
+    m_currentHeading = fmod(m_currentHeading, 2 * M_PI);
   }
 
   // Get the smallest scalar distance travelled
   const double baseDistTravelled = (leftWheelDistance + rightWheelDistance) / 2;
-  const double xDist = baseDistTravelled * cos(currentHeading);
-  const double yDist = baseDistTravelled * sin(currentHeading);
+  m_currentX += baseDistTravelled * cos(m_currentHeading);
+  m_currentY += baseDistTravelled * sin(m_currentHeading);
 
   // ------- Adapted from example at -------
   // http://wiki.ros.org/navigation/Tutorials/RobotSetup/Odom#Publishing_Odometry_Information_Over_ROS
   geometry_msgs::Quaternion quaternion =
-      tf::createQuaternionMsgFromYaw(currentHeading);
+      tf::createQuaternionMsgFromYaw(m_currentHeading);
+
+  auto currentTime = ros::Time::now();
+
+  // first, we'll publish the transform over tf
+  geometry_msgs::TransformStamped odom_trans;
+  odom_trans.header.stamp = currentTime;
+  odom_trans.header.frame_id = "odom";
+  odom_trans.child_frame_id = "base_link";
+
+  odom_trans.transform.translation.x = m_currentX;
+  odom_trans.transform.translation.y = m_currentY;
+  odom_trans.transform.translation.z = 0.0;
+  odom_trans.transform.rotation = quaternion;
+
+  // send the transform
+  m_tfPub.sendTransform(odom_trans);
 
   nav_msgs::Odometry odomMsg;
-  odomMsg.header.stamp = ros::Time::now();
+  odomMsg.header.stamp = currentTime;
   odomMsg.header.frame_id = "odom";
+  odomMsg.child_frame_id = "base_link";
 
-  odomMsg.pose.pose.position.x = xDist;
-  odomMsg.pose.pose.position.y = yDist;
+  odomMsg.pose.pose.position.x = m_currentX;
+  odomMsg.pose.pose.position.y = m_currentY;
   odomMsg.pose.pose.position.z = 0.;
   odomMsg.pose.pose.orientation = quaternion;
 
@@ -116,7 +148,7 @@ void Publisher::publishCurrentOdometry(const EncoderData &encoder,
   const int velDiff = speed.leftWheel - speed.rightWheel;
 
   odomMsg.twist.twist.linear.x = baseSpeed / (double)METERS_TO_MILLIS;
-  odomMsg.twist.twist.linear.y = 0.; // Argo cannot translate through Y
+  odomMsg.twist.twist.linear.y = 0.; // Argo cannot translate through Ymap
   odomMsg.twist.twist.angular.z = velDiff / (double)METERS_TO_MILLIS;
 
   // ---------------------

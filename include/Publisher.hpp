@@ -2,13 +2,15 @@
 #define PUBLISHER_HPP_
 
 #include "ros/ros.h"
+#include <tf/transform_broadcaster.h>
 
 // Forward declerations
 struct EncoderData;
 struct PwmData;
 struct SpeedData;
 
-class Publisher {
+class Publisher
+{
 public:
   /// Creates an object which handles publishing topics for the Argo driver
   Publisher(ros::NodeHandle &handle);
@@ -44,6 +46,16 @@ private:
 
   /// A handle to publish the current encoder counts
   ros::Publisher m_encoderPub;
+
+  /// A handle to the TF broadcaster
+  tf::TransformBroadcaster m_tfPub;
+
+  int m_previousLeftEncCount{0};
+  int m_previousRightEncCount{0};
+
+  double m_currentHeading{0};
+  double m_currentX{0};
+  double m_currentY{0};
 };
 
 #endif // PUBLISHER_HPP_
